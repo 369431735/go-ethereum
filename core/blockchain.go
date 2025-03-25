@@ -15,6 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package core implements the Ethereum consensus protocol.
+// 包core实现了以太坊共识协议。
 package core
 
 import (
@@ -141,22 +142,25 @@ const (
 
 // CacheConfig contains the configuration values for the trie database
 // and state snapshot these are resident in a blockchain.
+// CacheConfig包含区块链中常驻的trie数据库和状态快照的配置值。
 type CacheConfig struct {
-	TrieCleanLimit      int           // Memory allowance (MB) to use for caching trie nodes in memory
-	TrieCleanNoPrefetch bool          // Whether to disable heuristic state prefetching for followup blocks
-	TrieDirtyLimit      int           // Memory limit (MB) at which to start flushing dirty trie nodes to disk
-	TrieDirtyDisabled   bool          // Whether to disable trie write caching and GC altogether (archive node)
-	TrieTimeLimit       time.Duration // Time limit after which to flush the current in-memory trie to disk
-	SnapshotLimit       int           // Memory allowance (MB) to use for caching snapshot entries in memory
-	Preimages           bool          // Whether to store preimage of trie key to the disk
-	StateHistory        uint64        // Number of blocks from head whose state histories are reserved.
-	StateScheme         string        // Scheme used to store ethereum states and merkle tree nodes on top
+	TrieCleanLimit      int           // Memory allowance (MB) to use for caching trie nodes in memory // 用于在内存中缓存trie节点的内存限制（MB）
+	TrieCleanNoPrefetch bool          // Whether to disable heuristic state prefetching for followup blocks // 是否禁用后续区块的启发式状态预取
+	TrieDirtyLimit      int           // Memory limit (MB) at which to start flushing dirty trie nodes to disk // 开始将脏trie节点刷新到磁盘的内存限制（MB）
+	TrieDirtyDisabled   bool          // Whether to disable trie write caching and GC altogether (archive node) // 是否完全禁用trie写入缓存和GC（归档节点）
+	TrieTimeLimit       time.Duration // Time limit after which to flush the current in-memory trie to disk // 将当前内存中的trie刷新到磁盘的时间限制
+	SnapshotLimit       int           // Memory allowance (MB) to use for caching snapshot entries in memory // 用于在内存中缓存快照条目的内存限制（MB）
+	Preimages           bool          // Whether to store preimage of trie key to the disk // 是否将trie键的原像存储到磁盘
+	StateHistory        uint64        // Number of blocks from head whose state histories are reserved. // 保留其状态历史的区块数量（从链头开始计算）
+	StateScheme         string        // Scheme used to store ethereum states and merkle tree nodes on top // 用于在上层存储以太坊状态和默克尔树节点的方案
 
-	SnapshotNoBuild bool // Whether the background generation is allowed
-	SnapshotWait    bool // Wait for snapshot construction on startup. TODO(karalabe): This is a dirty hack for testing, nuke it
+	SnapshotNoBuild bool // Whether the background generation is allowed // 是否允许后台生成
+	SnapshotWait    bool // Wait for snapshot construction on startup. TODO(karalabe): This is a dirty hack for testing, nuke it // 启动时等待快照构建。TODO(karalabe)：这是一个用于测试的临时解决方案，应当移除
 
 	// This defines the cutoff block for history expiry.
 	// Blocks before this number may be unavailable in the chain database.
+	// 这定义了历史过期的截止区块。
+	// 在此编号之前的区块可能在链数据库中不可用。
 	HistoryPruningCutoff uint64
 }
 
@@ -202,6 +206,7 @@ func DefaultCacheConfigWithScheme(scheme string) *CacheConfig {
 
 // txLookup is wrapper over transaction lookup along with the corresponding
 // transaction object.
+// txLookup是交易查找的包装器，包含相应的交易对象。
 type txLookup struct {
 	lookup      *rawdb.LegacyTxLookupEntry
 	transaction *types.Transaction
@@ -221,19 +226,27 @@ type txLookup struct {
 // important to note that GetBlock can return any block and does not need to be
 // included in the canonical one where as GetBlockByNumber always represents the
 // canonical chain.
+// BlockChain表示给定包含创世区块的数据库的规范链。区块链管理链导入、回滚和链重组。
+//
+// 将区块导入区块链的过程按照由两阶段验证器定义的规则集进行。区块的处理使用处理器完成，
+// 该处理器处理包含的交易。状态的验证在验证器的第二部分中完成。失败会导致导入中止。
+//
+// BlockChain还有助于返回数据库中包含的**任何**链的区块以及代表规范链的区块。
+// 需要注意的是，GetBlock可以返回任何区块，不需要包含在规范链中，
+// 而GetBlockByNumber总是表示规范链。
 type BlockChain struct {
-	chainConfig *params.ChainConfig // Chain & network configuration
-	cacheConfig *CacheConfig        // Cache configuration for pruning
+	chainConfig *params.ChainConfig // Chain & network configuration // 链和网络配置
+	cacheConfig *CacheConfig        // Cache configuration for pruning // 用于剪枝的缓存配置
 
-	db            ethdb.Database                   // Low level persistent database to store final content in
-	snaps         *snapshot.Tree                   // Snapshot tree for fast trie leaf access
-	triegc        *prque.Prque[int64, common.Hash] // Priority queue mapping block numbers to tries to gc
-	gcproc        time.Duration                    // Accumulates canonical block processing for trie dumping
-	lastWrite     uint64                           // Last block when the state was flushed
-	flushInterval atomic.Int64                     // Time interval (processing time) after which to flush a state
-	triedb        *triedb.Database                 // The database handler for maintaining trie nodes.
-	statedb       *state.CachingDB                 // State database to reuse between imports (contains state cache)
-	txIndexer     *txIndexer                       // Transaction indexer, might be nil if not enabled
+	db            ethdb.Database                   // Low level persistent database to store final content in // 用于存储最终内容的低级持久化数据库
+	snaps         *snapshot.Tree                   // Snapshot tree for fast trie leaf access // 用于快速访问trie叶节点的快照树
+	triegc        *prque.Prque[int64, common.Hash] // Priority queue mapping block numbers to tries to gc // 将区块号映射到需要垃圾回收的trie的优先队列
+	gcproc        time.Duration                    // Accumulates canonical block processing for trie dumping // 累积规范区块处理以便trie转储
+	lastWrite     uint64                           // Last block when the state was flushed // 状态最后刷新时的区块高度
+	flushInterval atomic.Int64                     // Time interval (processing time) after which to flush a state // 刷新状态的时间间隔（处理时间）
+	triedb        *triedb.Database                 // The database handler for maintaining trie nodes. // 用于维护trie节点的数据库处理器
+	statedb       *state.CachingDB                 // State database to reuse between imports (contains state cache) // 在导入之间重用的状态数据库（包含状态缓存）
+	txIndexer     *txIndexer                       // Transaction indexer, might be nil if not enabled // 交易索引器，如果未启用可能为nil
 
 	hc               *HeaderChain
 	rmLogsFeed       event.Feed
@@ -247,12 +260,14 @@ type BlockChain struct {
 
 	// This mutex synchronizes chain write operations.
 	// Readers don't need to take it, they can just read the database.
+	// 这个互斥锁同步链写入操作。
+	// 读取器不需要获取它，它们可以直接读取数据库。
 	chainmu *syncx.ClosableMutex
 
-	currentBlock      atomic.Pointer[types.Header] // Current head of the chain
-	currentSnapBlock  atomic.Pointer[types.Header] // Current head of snap-sync
-	currentFinalBlock atomic.Pointer[types.Header] // Latest (consensus) finalized block
-	currentSafeBlock  atomic.Pointer[types.Header] // Latest (consensus) safe block
+	currentBlock      atomic.Pointer[types.Header] // Current head of the chain // 当前链头
+	currentSnapBlock  atomic.Pointer[types.Header] // Current head of snap-sync // 当前快照同步头
+	currentFinalBlock atomic.Pointer[types.Header] // Latest (consensus) finalized block // 最新的（共识）最终确定区块
+	currentSafeBlock  atomic.Pointer[types.Header] // Latest (consensus) safe block // 最新的（共识）安全区块
 
 	bodyCache     *lru.Cache[common.Hash, *types.Body]
 	bodyRLPCache  *lru.Cache[common.Hash, rlp.RawValue]
@@ -263,14 +278,14 @@ type BlockChain struct {
 	txLookupCache *lru.Cache[common.Hash, txLookup]
 
 	wg            sync.WaitGroup
-	quit          chan struct{} // shutdown signal, closed in Stop.
-	stopping      atomic.Bool   // false if chain is running, true when stopped
-	procInterrupt atomic.Bool   // interrupt signaler for block processing
+	quit          chan struct{} // shutdown signal, closed in Stop. // 关闭信号，在Stop中关闭
+	stopping      atomic.Bool   // false if chain is running, true when stopped // 如果链正在运行则为false，停止时为true
+	procInterrupt atomic.Bool   // interrupt signaler for block processing // 区块处理的中断信号
 
 	engine     consensus.Engine
-	validator  Validator // Block and state validator interface
+	validator  Validator // Block and state validator interface // 区块和状态验证器接口
 	prefetcher Prefetcher
-	processor  Processor // Block transaction processor interface
+	processor  Processor // Block transaction processor interface // 区块交易处理器接口
 	vmConfig   vm.Config
 	logger     *tracing.Hooks
 }
@@ -278,6 +293,8 @@ type BlockChain struct {
 // NewBlockChain returns a fully initialised block chain using information
 // available in the database. It initialises the default Ethereum Validator
 // and Processor.
+// NewBlockChain返回一个使用数据库中可用信息完全初始化的区块链。
+// 它初始化默认的以太坊验证器和处理器。
 func NewBlockChain(db ethdb.Database, cacheConfig *CacheConfig, genesis *Genesis, overrides *ChainOverrides, engine consensus.Engine, vmConfig vm.Config, txLookupLimit *uint64) (*BlockChain, error) {
 	if cacheConfig == nil {
 		cacheConfig = defaultCacheConfig
@@ -1179,29 +1196,35 @@ func (bc *BlockChain) Stop() {
 // StopInsert interrupts all insertion methods, causing them to return
 // errInsertionInterrupted as soon as possible. Insertion is permanently disabled after
 // calling this method.
+// StopInsert中断所有插入方法，使它们尽快返回errInsertionInterrupted。
+// 调用此方法后，插入功能将被永久禁用。
 func (bc *BlockChain) StopInsert() {
 	bc.procInterrupt.Store(true)
 }
 
 // insertStopped returns true after StopInsert has been called.
+// insertStopped在调用StopInsert后返回true。
 func (bc *BlockChain) insertStopped() bool {
 	return bc.procInterrupt.Load()
 }
 
 // WriteStatus status of write
+// WriteStatus表示写入状态
 type WriteStatus byte
 
 const (
-	NonStatTy WriteStatus = iota
-	CanonStatTy
-	SideStatTy
+	NonStatTy   WriteStatus = iota // None or unknown status // 无状态或未知状态
+	CanonStatTy                    // Canonical block // 规范链区块
+	SideStatTy                     // Side block // 侧链区块
 )
 
 // InsertReceiptChain attempts to complete an already existing header chain with
 // transaction and receipt data.
+// InsertReceiptChain尝试用交易和收据数据完成已经存在的区块头链。
 func (bc *BlockChain) InsertReceiptChain(blockChain types.Blocks, receiptChain []types.Receipts, ancientLimit uint64) (int, error) {
 	// We don't require the chainMu here since we want to maximize the
 	// concurrency of header insertion and receipt insertion.
+	// 这里不需要chainMu锁，因为我们想要最大化区块头插入和收据插入的并发性。
 	bc.wg.Add(1)
 	defer bc.wg.Done()
 
@@ -1571,13 +1594,17 @@ func (bc *BlockChain) writeBlockAndSetHead(block *types.Block, receipts []*types
 // chain or, otherwise, create a fork. If an error is returned it will return
 // the index number of the failing block as well an error describing what went
 // wrong. After insertion is done, all accumulated events will be fired.
+// InsertChain尝试将给定的区块批次插入到规范链中，或者创建一个分叉。如果返回错误，
+// 它将返回失败区块的索引号以及描述出错原因的错误。插入完成后，所有累积的事件将被触发。
 func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 	// Sanity check that we have something meaningful to import
+	// 进行健全性检查，确保我们有有意义的内容可导入
 	if len(chain) == 0 {
 		return 0, nil
 	}
 
 	// Do a sanity check that the provided chain is actually ordered and linked.
+	// 进行健全性检查，确保提供的链实际上是有序且相互链接的
 	for i := 1; i < len(chain); i++ {
 		block, prev := chain[i], chain[i-1]
 		if block.NumberU64() != prev.NumberU64()+1 || block.ParentHash() != prev.Hash() {
@@ -1593,6 +1620,7 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 		}
 	}
 	// Pre-checks passed, start the full block imports
+	// 预检查通过，开始完整的区块导入
 	if !bc.chainmu.TryLock() {
 		return 0, errChainStopped
 	}
@@ -1610,8 +1638,15 @@ func (bc *BlockChain) InsertChain(chain types.Blocks) (int, error) {
 // racey behaviour. If a sidechain import is in progress, and the historic state
 // is imported, but then new canon-head is added before the actual sidechain
 // completes, then the historic state could be pruned again
+// insertChain是InsertChain的内部实现，它假设
+// 1）链是连续的，2）链互斥锁被持有。
+//
+// 将此方法分离出来是为了让需要重新注入历史区块的导入批次可以在不释放锁的情况下完成，
+// 否则可能导致竞争行为。如果侧链导入正在进行中，并且历史状态已导入，
+// 但在实际侧链完成之前添加了新的规范链头，那么历史状态可能会再次被修剪。
 func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool, makeWitness bool) (*stateless.Witness, int, error) {
 	// If the chain is terminating, don't even bother starting up.
+	// 如果链正在终止，甚至不要费心启动。
 	if bc.insertStopped() {
 		return nil, 0, nil
 	}
@@ -1626,6 +1661,7 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool, makeWitness 
 	}()
 
 	// Start a parallel signature recovery (signer will fluke on fork transition, minimal perf loss)
+	// 启动并行签名恢复（签名者在分叉转换时会失效，性能损失最小）
 	SenderCacher().RecoverFromBlocks(types.MakeSigner(bc.chainConfig, chain[0].Number(), chain[0].Time()), chain)
 
 	var (
@@ -1878,6 +1914,8 @@ func (bc *BlockChain) insertChain(chain types.Blocks, setHead bool, makeWitness 
 
 // blockProcessingResult is a summary of block processing
 // used for updating the stats.
+// blockProcessingResult是区块处理的摘要，
+// 用于更新统计信息。
 type blockProcessingResult struct {
 	usedGas  uint64
 	procTime time.Duration
@@ -1886,6 +1924,8 @@ type blockProcessingResult struct {
 
 // processBlock executes and validates the given block. If there was no error
 // it writes the block and associated state to database.
+// processBlock执行并验证给定的区块。如果没有错误，
+// 它会将区块和关联的状态写入数据库。
 func (bc *BlockChain) processBlock(block *types.Block, statedb *state.StateDB, start time.Time, setHead bool) (_ *blockProcessingResult, blockEndErr error) {
 	if bc.logger != nil && bc.logger.OnBlockStart != nil {
 		bc.logger.OnBlockStart(tracing.BlockEvent{
@@ -1998,6 +2038,12 @@ func (bc *BlockChain) processBlock(block *types.Block, statedb *state.StateDB, s
 // The method writes all (header-and-body-valid) blocks to disk, then tries to
 // switch over to the new chain if the TD exceeded the current chain.
 // insertSideChain is only used pre-merge.
+// insertSideChain在导入批次遇到修剪祖先错误时被调用，这种情况发生在
+// 发现具有足够老的分叉块的侧链时。
+//
+// 该方法将所有（头部和正文有效的）区块写入磁盘，然后尝试
+// 如果总难度超过当前链，则切换到新链。
+// insertSideChain仅在合并前使用。
 func (bc *BlockChain) insertSideChain(block *types.Block, it *insertIterator, makeWitness bool) (*stateless.Witness, int, error) {
 	var current = bc.CurrentBlock()
 
@@ -2102,6 +2148,10 @@ func (bc *BlockChain) insertSideChain(block *types.Block, it *insertIterator, ma
 // all the ancestor blocks since that.
 // recoverAncestors is only used post-merge.
 // We return the hash of the latest block that we could correctly validate.
+// recoverAncestors查找具有可用状态的最近祖先，并重新执行
+// 从那时起的所有祖先区块。
+// recoverAncestors仅在合并后使用。
+// 我们返回我们能够正确验证的最新区块的哈希。
 func (bc *BlockChain) recoverAncestors(block *types.Block, makeWitness bool) (common.Hash, error) {
 	// Gather all the sidechain hashes (full blocks may be memory heavy)
 	var (
@@ -2151,6 +2201,8 @@ func (bc *BlockChain) recoverAncestors(block *types.Block, makeWitness bool) (co
 
 // collectLogs collects the logs that were generated or removed during the
 // processing of a block. These logs are later announced as deleted or reborn.
+// collectLogs收集在区块处理过程中生成或移除的日志。
+// 这些日志稍后会被宣布为已删除或重生。
 func (bc *BlockChain) collectLogs(b *types.Block, removed bool) []*types.Log {
 	var blobGasPrice *big.Int
 	if b.ExcessBlobGas() != nil {
@@ -2178,6 +2230,10 @@ func (bc *BlockChain) collectLogs(b *types.Block, removed bool) []*types.Log {
 //
 // Note the new head block won't be processed here, callers need to handle it
 // externally.
+// reorg接受两个区块，一个旧链和一个新链，将重构这些区块并将它们
+// 插入成为新规范链的一部分，同时累积潜在的丢失交易并发布有关它们的事件。
+//
+// 注意新的头区块不会在这里处理，调用者需要在外部处理它。
 func (bc *BlockChain) reorg(oldHead *types.Header, newHead *types.Header) error {
 	var (
 		newChain    []*types.Header
@@ -2362,6 +2418,10 @@ func (bc *BlockChain) reorg(oldHead *types.Header, newHead *types.Header) error 
 // The key difference between the InsertChain is it won't do the canonical chain
 // updating. It relies on the additional SetCanonical call to finalize the entire
 // procedure.
+// InsertBlockWithoutSetHead执行区块，对其进行必要的验证，
+// 然后将区块和关联状态持久化到数据库中。
+// 与InsertChain的关键区别在于它不会更新规范链。
+// 它依赖于额外的SetCanonical调用来完成整个过程。
 func (bc *BlockChain) InsertBlockWithoutSetHead(block *types.Block, makeWitness bool) (*stateless.Witness, error) {
 	if !bc.chainmu.TryLock() {
 		return nil, errChainStopped
@@ -2375,6 +2435,8 @@ func (bc *BlockChain) InsertBlockWithoutSetHead(block *types.Block, makeWitness 
 // SetCanonical rewinds the chain to set the new head block as the specified
 // block. It's possible that the state of the new head is missing, and it will
 // be recovered in this function as well.
+// SetCanonical将链回滚以将新的头区块设置为指定的区块。
+// 新头区块的状态可能缺失，此函数也会恢复该状态。
 func (bc *BlockChain) SetCanonical(head *types.Block) (common.Hash, error) {
 	if !bc.chainmu.TryLock() {
 		return common.Hash{}, errChainStopped
@@ -2420,6 +2482,8 @@ func (bc *BlockChain) SetCanonical(head *types.Block) (common.Hash, error) {
 
 // skipBlock returns 'true', if the block being imported can be skipped over, meaning
 // that the block does not need to be processed but can be considered already fully 'done'.
+// skipBlock在导入区块可以被跳过时返回'true'，这意味着
+// 该区块不需要被处理，但可以被视为已经完全'完成'。
 func (bc *BlockChain) skipBlock(err error, it *insertIterator) bool {
 	// We can only ever bypass processing if the only error returned by the validator
 	// is ErrKnownBlock, which means all checks passed, but we already have the block
@@ -2460,6 +2524,7 @@ func (bc *BlockChain) skipBlock(err error, it *insertIterator) bool {
 }
 
 // reportBlock logs a bad block error.
+// reportBlock记录坏区块错误。
 func (bc *BlockChain) reportBlock(block *types.Block, res *ProcessResult, err error) {
 	var receipts types.Receipts
 	if res != nil {
@@ -2471,6 +2536,8 @@ func (bc *BlockChain) reportBlock(block *types.Block, res *ProcessResult, err er
 
 // summarizeBadBlock returns a string summarizing the bad block and other
 // relevant information.
+// summarizeBadBlock返回一个字符串，总结坏区块和其他
+// 相关信息。
 func summarizeBadBlock(block *types.Block, receipts []*types.Receipt, config *params.ChainConfig, err error) string {
 	var receiptString string
 	for i, receipt := range receipts {
@@ -2497,6 +2564,9 @@ Receipts: %v
 // InsertHeaderChain attempts to insert the given header chain in to the local
 // chain, possibly creating a reorg. If an error is returned, it will return the
 // index number of the failing header as well an error describing what went wrong.
+// InsertHeaderChain尝试将给定的区块头链插入到本地链中，
+// 可能会创建一个重组。如果返回错误，它将返回失败区块头的
+// 索引号以及描述出错原因的错误。
 func (bc *BlockChain) InsertHeaderChain(chain []*types.Header) (int, error) {
 	if len(chain) == 0 {
 		return 0, nil
@@ -2517,6 +2587,9 @@ func (bc *BlockChain) InsertHeaderChain(chain []*types.Header) (int, error) {
 // SetBlockValidatorAndProcessorForTesting sets the current validator and processor.
 // This method can be used to force an invalid blockchain to be verified for tests.
 // This method is unsafe and should only be used before block import starts.
+// SetBlockValidatorAndProcessorForTesting设置当前的验证器和处理器。
+// 此方法可用于强制验证测试中的无效区块链。
+// 此方法不安全，应仅在区块导入开始前使用。
 func (bc *BlockChain) SetBlockValidatorAndProcessorForTesting(v Validator, p Processor) {
 	bc.validator = v
 	bc.processor = p
@@ -2525,17 +2598,23 @@ func (bc *BlockChain) SetBlockValidatorAndProcessorForTesting(v Validator, p Pro
 // SetTrieFlushInterval configures how often in-memory tries are persisted to disk.
 // The interval is in terms of block processing time, not wall clock.
 // It is thread-safe and can be called repeatedly without side effects.
+// SetTrieFlushInterval配置内存中的尝试树多久持久化到磁盘一次。
+// 该间隔是以区块处理时间而非挂钟时间来衡量的。
+// 它是线程安全的，可以重复调用而不会产生副作用。
 func (bc *BlockChain) SetTrieFlushInterval(interval time.Duration) {
 	bc.flushInterval.Store(int64(interval))
 }
 
 // GetTrieFlushInterval gets the in-memory tries flushAlloc interval
+// GetTrieFlushInterval获取内存中尝试树的刷新间隔
 func (bc *BlockChain) GetTrieFlushInterval() time.Duration {
 	return time.Duration(bc.flushInterval.Load())
 }
 
 // HistoryPruningCutoff returns the configured history pruning point.
 // Blocks before this might not be available in the database.
+// HistoryPruningCutoff返回配置的历史修剪点。
+// 在此之前的区块可能在数据库中不可用。
 func (bc *BlockChain) HistoryPruningCutoff() uint64 {
 	return bc.cacheConfig.HistoryPruningCutoff
 }

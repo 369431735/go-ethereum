@@ -39,6 +39,7 @@ import (
 )
 
 // Ethash proof-of-work protocol constants.
+// Ethash工作量证明协议常量。
 var (
 	FrontierBlockReward           = uint256.NewInt(5e+18) // Block reward in wei for successfully mining a block
 	ByzantiumBlockReward          = uint256.NewInt(3e+18) // Block reward in wei for successfully mining a block upward from Byzantium
@@ -49,21 +50,33 @@ var (
 	// calcDifficultyEip5133 is the difficulty adjustment algorithm as specified by EIP 5133.
 	// It offsets the bomb a total of 11.4M blocks.
 	// Specification EIP-5133: https://eips.ethereum.org/EIPS/eip-5133
+	// calcDifficultyEip5133是由EIP 5133规定的难度调整算法。
+	// 它将难度炸弹推迟了总共1140万个区块。
+	// 规范EIP-5133: https://eips.ethereum.org/EIPS/eip-5133
 	calcDifficultyEip5133 = makeDifficultyCalculator(big.NewInt(11_400_000))
 
 	// calcDifficultyEip4345 is the difficulty adjustment algorithm as specified by EIP 4345.
 	// It offsets the bomb a total of 10.7M blocks.
 	// Specification EIP-4345: https://eips.ethereum.org/EIPS/eip-4345
+	// calcDifficultyEip4345是由EIP 4345规定的难度调整算法。
+	// 它将难度炸弹推迟了总共1070万个区块。
+	// 规范EIP-4345: https://eips.ethereum.org/EIPS/eip-4345
 	calcDifficultyEip4345 = makeDifficultyCalculator(big.NewInt(10_700_000))
 
 	// calcDifficultyEip3554 is the difficulty adjustment algorithm as specified by EIP 3554.
 	// It offsets the bomb a total of 9.7M blocks.
 	// Specification EIP-3554: https://eips.ethereum.org/EIPS/eip-3554
+	// calcDifficultyEip3554是由EIP 3554规定的难度调整算法。
+	// 它将难度炸弹推迟了总共970万个区块。
+	// 规范EIP-3554: https://eips.ethereum.org/EIPS/eip-3554
 	calcDifficultyEip3554 = makeDifficultyCalculator(big.NewInt(9700000))
 
 	// calcDifficultyEip2384 is the difficulty adjustment algorithm as specified by EIP 2384.
 	// It offsets the bomb 4M blocks from Constantinople, so in total 9M blocks.
 	// Specification EIP-2384: https://eips.ethereum.org/EIPS/eip-2384
+	// calcDifficultyEip2384是由EIP 2384规定的难度调整算法。
+	// 它将难度炸弹从君士坦丁堡分叉推迟了400万个区块，总共推迟了900万个区块。
+	// 规范EIP-2384: https://eips.ethereum.org/EIPS/eip-2384
 	calcDifficultyEip2384 = makeDifficultyCalculator(big.NewInt(9000000))
 
 	// calcDifficultyConstantinople is the difficulty adjustment algorithm for Constantinople.
@@ -71,12 +84,20 @@ var (
 	// parent block's time and difficulty. The calculation uses the Byzantium rules, but with
 	// bomb offset 5M.
 	// Specification EIP-1234: https://eips.ethereum.org/EIPS/eip-1234
+	// calcDifficultyConstantinople是君士坦丁堡分叉的难度调整算法。
+	// 它返回新区块在给定父区块时间和难度的情况下应该具有的难度。
+	// 计算使用拜占庭规则，但难度炸弹偏移量为500万。
+	// 规范EIP-1234: https://eips.ethereum.org/EIPS/eip-1234
 	calcDifficultyConstantinople = makeDifficultyCalculator(big.NewInt(5000000))
 
 	// calcDifficultyByzantium is the difficulty adjustment algorithm. It returns
 	// the difficulty that a new block should have when created at time given the
 	// parent block's time and difficulty. The calculation uses the Byzantium rules.
 	// Specification EIP-649: https://eips.ethereum.org/EIPS/eip-649
+	// calcDifficultyByzantium是拜占庭分叉的难度调整算法。它返回
+	// 新区块在给定父区块时间和难度的情况下应该具有的难度。
+	// 计算使用拜占庭规则。
+	// 规范EIP-649: https://eips.ethereum.org/EIPS/eip-649
 	calcDifficultyByzantium = makeDifficultyCalculator(big.NewInt(3000000))
 )
 
@@ -84,6 +105,10 @@ var (
 // prevent engine specific errors from being referenced in the remainder of the
 // codebase, inherently breaking if the engine is swapped out. Please put common
 // error types into the consensus package.
+// 各种标记区块无效的错误消息。这些应该是私有的，
+// 以防止引擎特定的错误在代码库的其余部分被引用，
+// 如果引擎被替换，这些错误会导致内在的破坏。
+// 请将常见的错误类型放入共识包中。
 var (
 	errOlderBlockTime  = errors.New("timestamp older than parent")
 	errTooManyUncles   = errors.New("too many uncles")
@@ -94,12 +119,15 @@ var (
 
 // Author implements consensus.Engine, returning the header's coinbase as the
 // proof-of-work verified author of the block.
+// Author实现consensus.Engine接口，返回区块头的coinbase作为
+// 工作量证明验证的区块作者。
 func (ethash *Ethash) Author(header *types.Header) (common.Address, error) {
 	return header.Coinbase, nil
 }
 
 // VerifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
+// VerifyHeader检查区块头是否符合以太坊ethash引擎的共识规则。
 func (ethash *Ethash) VerifyHeader(chain consensus.ChainHeaderReader, header *types.Header) error {
 	// Short circuit if the header is known, or its parent not
 	number := header.Number.Uint64()
@@ -117,6 +145,8 @@ func (ethash *Ethash) VerifyHeader(chain consensus.ChainHeaderReader, header *ty
 // VerifyHeaders is similar to VerifyHeader, but verifies a batch of headers
 // concurrently. The method returns a quit channel to abort the operations and
 // a results channel to retrieve the async verifications.
+// VerifyHeaders类似于VerifyHeader，但并发验证一批区块头。
+// 该方法返回一个退出通道以中止操作，以及一个结果通道以检索异步验证结果。
 func (ethash *Ethash) VerifyHeaders(chain consensus.ChainHeaderReader, headers []*types.Header) (chan<- struct{}, <-chan error) {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.fakeFull || len(headers) == 0 {
@@ -156,6 +186,7 @@ func (ethash *Ethash) VerifyHeaders(chain consensus.ChainHeaderReader, headers [
 
 // VerifyUncles verifies that the given block's uncles conform to the consensus
 // rules of the stock Ethereum ethash engine.
+// VerifyUncles验证给定区块的叔块是否符合以太坊ethash引擎的共识规则。
 func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Block) error {
 	// If we're running a full engine faking, accept any input as valid
 	if ethash.fakeFull {
@@ -219,7 +250,14 @@ func (ethash *Ethash) VerifyUncles(chain consensus.ChainReader, block *types.Blo
 
 // verifyHeader checks whether a header conforms to the consensus rules of the
 // stock Ethereum ethash engine.
-// See YP section 4.3.4. "Block Header Validity"
+// verifyHeader检查区块头是否符合以太坊ethash引擎的共识规则。
+// The verifyHeader checks whether a header conforms to the consensus rules.The
+// caller may optionally pass in a batch of parents (ascending order) to avoid
+// looking those up from the database. This is useful for concurrently verifying
+// a batch of new headers.
+// verifyHeader检查区块头是否符合共识规则。调用者可以
+// 选择性地传入一批父区块头（升序）以避免从数据库中查找这些内容。
+// 这对于并发验证一批新的区块头很有用。
 func (ethash *Ethash) verifyHeader(chain consensus.ChainHeaderReader, header, parent *types.Header, uncle bool, unixNow int64) error {
 	// Ensure that the header's extra-data section is of a reasonable size
 	if uint64(len(header.Extra)) > params.MaximumExtraDataSize {
@@ -301,6 +339,8 @@ func (ethash *Ethash) verifyHeader(chain consensus.ChainHeaderReader, header, pa
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
+// CalcDifficulty是难度调整算法。它返回新区块在
+// 给定父区块时间和难度的情况下应该具有的难度。
 func (ethash *Ethash) CalcDifficulty(chain consensus.ChainHeaderReader, time uint64, parent *types.Header) *big.Int {
 	return CalcDifficulty(chain.Config(), time, parent)
 }
@@ -308,6 +348,8 @@ func (ethash *Ethash) CalcDifficulty(chain consensus.ChainHeaderReader, time uin
 // CalcDifficulty is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time
 // given the parent block's time and difficulty.
+// CalcDifficulty是难度调整算法。它返回新区块在
+// 给定父区块时间和难度的情况下应该具有的难度。
 func CalcDifficulty(config *params.ChainConfig, time uint64, parent *types.Header) *big.Int {
 	next := new(big.Int).Add(parent.Number, big1)
 	switch {
@@ -343,6 +385,8 @@ var (
 // makeDifficultyCalculator creates a difficultyCalculator with the given bomb-delay.
 // the difficulty is calculated with Byzantium rules, which differs from Homestead in
 // how uncles affect the calculation
+// makeDifficultyCalculator创建一个具有给定炸弹延迟的难度计算器。
+// 难度使用拜占庭规则计算，这与家园版本在叔块如何影响计算方面不同。
 func makeDifficultyCalculator(bombDelay *big.Int) func(time uint64, parent *types.Header) *big.Int {
 	// Note, the calculations below looks at the parent number, which is 1 below
 	// the block number. Thus we remove one from the delay given
@@ -406,6 +450,9 @@ func makeDifficultyCalculator(bombDelay *big.Int) func(time uint64, parent *type
 // calcDifficultyHomestead is the difficulty adjustment algorithm. It returns
 // the difficulty that a new block should have when created at time given the
 // parent block's time and difficulty. The calculation uses the Homestead rules.
+// calcDifficultyHomestead是难度调整算法。它返回新区块在
+// 给定父区块时间和难度的情况下应该具有的难度。
+// 计算使用Homestead规则。
 func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 	// https://github.com/ethereum/EIPs/blob/master/EIPS/eip-2.md
 	// algorithm:
@@ -455,6 +502,9 @@ func calcDifficultyHomestead(time uint64, parent *types.Header) *big.Int {
 // calcDifficultyFrontier is the difficulty adjustment algorithm. It returns the
 // difficulty that a new block should have when created at time given the parent
 // block's time and difficulty. The calculation uses the Frontier rules.
+// calcDifficultyFrontier是难度调整算法。它返回新区块在
+// 给定父区块时间和难度的情况下应该具有的难度。
+// 计算使用Frontier规则。
 func calcDifficultyFrontier(time uint64, parent *types.Header) *big.Int {
 	diff := new(big.Int)
 	adjust := new(big.Int).Div(parent.Difficulty, params.DifficultyBoundDivisor)
@@ -494,6 +544,8 @@ var DynamicDifficultyCalculator = makeDifficultyCalculator
 
 // Prepare implements consensus.Engine, initializing the difficulty field of a
 // header to conform to the ethash protocol. The changes are done inline.
+// Prepare实现consensus.Engine接口，初始化区块头的难度字段
+// 以符合ethash协议。更改是内联完成的。
 func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.Header) error {
 	parent := chain.GetHeader(header.ParentHash, header.Number.Uint64()-1)
 	if parent == nil {
@@ -503,7 +555,10 @@ func (ethash *Ethash) Prepare(chain consensus.ChainHeaderReader, header *types.H
 	return nil
 }
 
-// Finalize implements consensus.Engine, accumulating the block and uncle rewards.
+// Finalize implements consensus.Engine, accumulating the block and uncle rewards,
+// setting the final state on the header
+// Finalize实现consensus.Engine接口，累积区块和叔块奖励，
+// 在区块头上设置最终状态
 func (ethash *Ethash) Finalize(chain consensus.ChainHeaderReader, header *types.Header, state vm.StateDB, body *types.Body) {
 	// Accumulate any block and uncle rewards
 	accumulateRewards(chain.Config(), state, header, body.Uncles)
@@ -511,6 +566,8 @@ func (ethash *Ethash) Finalize(chain consensus.ChainHeaderReader, header *types.
 
 // FinalizeAndAssemble implements consensus.Engine, accumulating the block and
 // uncle rewards, setting the final state and assembling the block.
+// FinalizeAndAssemble实现consensus.Engine接口，累积区块和
+// 叔块奖励，设置最终状态并组装区块。
 func (ethash *Ethash) FinalizeAndAssemble(chain consensus.ChainHeaderReader, header *types.Header, state *state.StateDB, body *types.Body, receipts []*types.Receipt) (*types.Block, error) {
 	if len(body.Withdrawals) > 0 {
 		return nil, errors.New("ethash does not support withdrawals")
@@ -526,6 +583,7 @@ func (ethash *Ethash) FinalizeAndAssemble(chain consensus.ChainHeaderReader, hea
 }
 
 // SealHash returns the hash of a block prior to it being sealed.
+// SealHash返回区块在封存之前的哈希值。
 func (ethash *Ethash) SealHash(header *types.Header) (hash common.Hash) {
 	hasher := sha3.NewLegacyKeccak256()
 
@@ -567,6 +625,9 @@ func (ethash *Ethash) SealHash(header *types.Header) (hash common.Hash) {
 // accumulateRewards credits the coinbase of the given block with the mining
 // reward. The total reward consists of the static block reward and rewards for
 // included uncles. The coinbase of each uncle block is also rewarded.
+// accumulateRewards将给定区块的coinbase记入挖矿奖励。
+// 总奖励包括静态区块奖励和包含的叔块奖励。
+// 每个叔块的coinbase也会获得奖励。
 func accumulateRewards(config *params.ChainConfig, stateDB vm.StateDB, header *types.Header, uncles []*types.Header) {
 	// Select the correct block reward based on chain progression
 	blockReward := FrontierBlockReward

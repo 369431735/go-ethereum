@@ -15,6 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package eth implements the Ethereum protocol.
+// 包eth实现以太坊协议。
 package eth
 
 import (
@@ -64,11 +65,15 @@ import (
 
 // Config contains the configuration options of the ETH protocol.
 // Deprecated: use ethconfig.Config instead.
+// Config包含ETH协议的配置选项。
+// 已弃用：请使用ethconfig.Config代替。
 type Config = ethconfig.Config
 
 // Ethereum implements the Ethereum full node service.
+// Ethereum实现以太坊全节点服务。
 type Ethereum struct {
 	// core protocol objects
+	// 核心协议对象
 	config         *ethconfig.Config
 	txPool         *txpool.TxPool
 	localTxTracker *locals.TxTracker
@@ -78,7 +83,8 @@ type Ethereum struct {
 	discmix *enode.FairMix
 
 	// DB interfaces
-	chainDb ethdb.Database // Block chain database
+	// 数据库接口
+	chainDb ethdb.Database // Block chain database // 区块链数据库
 
 	eventMux       *event.TypeMux
 	engine         consensus.Engine
@@ -97,13 +103,15 @@ type Ethereum struct {
 
 	p2pServer *p2p.Server
 
-	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase)
+	lock sync.RWMutex // Protects the variadic fields (e.g. gas price and etherbase) // 保护可变字段（例如gas价格和etherbase）
 
-	shutdownTracker *shutdowncheck.ShutdownTracker // Tracks if and when the node has shutdown ungracefully
+	shutdownTracker *shutdowncheck.ShutdownTracker // Tracks if and when the node has shutdown ungracefully // 跟踪节点是否以及何时非正常关闭
 }
 
 // New creates a new Ethereum object (including the initialisation of the common Ethereum object),
 // whose lifecycle will be managed by the provided node.
+// New创建一个新的Ethereum对象（包括初始化公共Ethereum对象），
+// 其生命周期将由提供的节点管理。
 func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	// Ensure configuration values are compatible and sane
 	if !config.SyncMode.IsValid() {
@@ -313,6 +321,8 @@ func New(stack *node.Node, config *ethconfig.Config) (*Ethereum, error) {
 	return eth, nil
 }
 
+// makeExtraData creates a extra field for the newly minted genesis block, including the client version.
+// makeExtraData为新铸造的创世区块创建一个额外字段，包括客户端版本。
 func makeExtraData(extra []byte) []byte {
 	if len(extra) == 0 {
 		// create default extradata
@@ -330,8 +340,8 @@ func makeExtraData(extra []byte) []byte {
 	return extra
 }
 
-// APIs return the collection of RPC services the ethereum package offers.
-// NOTE, some of these services probably need to be moved to somewhere else.
+// APIs returns the collection of RPC services the ethereum package offers.
+// APIs返回ethereum包提供的RPC服务集合。
 func (s *Ethereum) APIs() []rpc.API {
 	apis := ethapi.GetAPIs(s.APIBackend)
 
@@ -359,25 +369,58 @@ func (s *Ethereum) APIs() []rpc.API {
 	}...)
 }
 
+// ResetWithGenesisBlock reinitialises the blockchain with the given genesis block.
+// ResetWithGenesisBlock使用给定的创世区块重新初始化区块链。
 func (s *Ethereum) ResetWithGenesisBlock(gb *types.Block) {
 	s.blockchain.ResetWithGenesisBlock(gb)
 }
 
+// Miner retrieves the block mining service for external interaction.
+// Miner检索区块挖掘服务以进行外部交互。
 func (s *Ethereum) Miner() *miner.Miner { return s.miner }
 
-func (s *Ethereum) AccountManager() *accounts.Manager  { return s.accountManager }
-func (s *Ethereum) BlockChain() *core.BlockChain       { return s.blockchain }
-func (s *Ethereum) TxPool() *txpool.TxPool             { return s.txPool }
-func (s *Ethereum) Engine() consensus.Engine           { return s.engine }
-func (s *Ethereum) ChainDb() ethdb.Database            { return s.chainDb }
-func (s *Ethereum) IsListening() bool                  { return true } // Always listening
-func (s *Ethereum) Downloader() *downloader.Downloader { return s.handler.downloader }
-func (s *Ethereum) Synced() bool                       { return s.handler.synced.Load() }
-func (s *Ethereum) SetSynced()                         { s.handler.enableSyncedFeatures() }
-func (s *Ethereum) ArchiveMode() bool                  { return s.config.NoPruning }
+// AccountManager retrieves the account manager for external interaction.
+// AccountManager检索账户管理器以进行外部交互。
+func (s *Ethereum) AccountManager() *accounts.Manager { return s.accountManager }
 
-// Protocols returns all the currently configured
-// network protocols to start.
+// BlockChain retrieves the blockchain service for external interaction.
+// BlockChain检索区块链服务以进行外部交互。
+func (s *Ethereum) BlockChain() *core.BlockChain { return s.blockchain }
+
+// TxPool retrieves the transaction pool service for external interaction.
+// TxPool检索交易池服务以进行外部交互。
+func (s *Ethereum) TxPool() *txpool.TxPool { return s.txPool }
+
+// Engine retrieves the blockchain consensus engine.
+// Engine检索区块链共识引擎。
+func (s *Ethereum) Engine() consensus.Engine { return s.engine }
+
+// ChainDb retrieves the blockchain database.
+// ChainDb检索区块链数据库。
+func (s *Ethereum) ChainDb() ethdb.Database { return s.chainDb }
+
+// IsListening returns whether the node is listening for network connections or not.
+// IsListening返回节点是否正在监听网络连接。
+func (s *Ethereum) IsListening() bool { return true } // Always listening // 始终在监听
+
+// Downloader retrieves the downloader service for external interaction.
+// Downloader检索下载器服务以进行外部交互。
+func (s *Ethereum) Downloader() *downloader.Downloader { return s.handler.downloader }
+
+// Synced returns true if the sync loop has completed synchronisation.
+// Synced如果同步循环已完成同步，则返回true。
+func (s *Ethereum) Synced() bool { return s.handler.synced.Load() }
+
+// SetSynced allows the manual adjustment of the synced flag.
+// SetSynced允许手动调整同步标志。
+func (s *Ethereum) SetSynced() { s.handler.enableSyncedFeatures() }
+
+// ArchiveMode returns whether the node runs in full archive mode.
+// ArchiveMode返回节点是否以完整归档模式运行。
+func (s *Ethereum) ArchiveMode() bool { return s.config.NoPruning }
+
+// Protocols implements the node.Service interface, returning the current Ethereum protocol handler.
+// Protocols实现node.Service接口，返回当前的以太坊协议处理程序。
 func (s *Ethereum) Protocols() []p2p.Protocol {
 	protos := eth.MakeProtocols((*ethHandler)(s.handler), s.networkID, s.discmix)
 	if s.config.SnapshotCache > 0 {
@@ -386,8 +429,8 @@ func (s *Ethereum) Protocols() []p2p.Protocol {
 	return protos
 }
 
-// Start implements node.Lifecycle, starting all internal goroutines needed by the
-// Ethereum protocol implementation.
+// Start implements the node.Service interface, starting all internal goroutines needed by the Ethereum protocol implementation.
+// Start实现node.Service接口，启动以太坊协议实现所需的所有内部goroutine。
 func (s *Ethereum) Start() error {
 	if err := s.setupDiscovery(); err != nil {
 		return err
@@ -405,6 +448,8 @@ func (s *Ethereum) Start() error {
 	return nil
 }
 
+// newChainView returns a new view of the blockchain for the filter maps
+// newChainView返回用于过滤器映射的区块链的新视图
 func (s *Ethereum) newChainView(head *types.Header) *filtermaps.ChainView {
 	if head == nil {
 		return nil
@@ -412,6 +457,8 @@ func (s *Ethereum) newChainView(head *types.Header) *filtermaps.ChainView {
 	return filtermaps.NewChainView(s.blockchain, head.Number.Uint64(), head.Hash())
 }
 
+// updateFilterMapsHeads updates the new heads in the filtermaps
+// updateFilterMapsHeads更新过滤器映射中的新头
 func (s *Ethereum) updateFilterMapsHeads() {
 	headEventCh := make(chan core.ChainEvent, 10)
 	blockProcCh := make(chan bool, 10)
@@ -463,6 +510,8 @@ func (s *Ethereum) updateFilterMapsHeads() {
 	}
 }
 
+// setupDiscovery creates the node discovery source for the `eth` and `snap` protocols.
+// setupDiscovery为`eth`和`snap`协议创建节点发现源。
 func (s *Ethereum) setupDiscovery() error {
 	eth.StartENRUpdater(s.blockchain, s.p2pServer.LocalNode())
 
@@ -495,8 +544,8 @@ func (s *Ethereum) setupDiscovery() error {
 	return nil
 }
 
-// Stop implements node.Lifecycle, terminating all internal goroutines used by the
-// Ethereum protocol.
+// Stop implements the node.Service interface, terminating all internal goroutines used by the Ethereum protocol.
+// Stop实现node.Service接口，终止以太坊协议使用的所有内部goroutine。
 func (s *Ethereum) Stop() error {
 	// Stop all the peer-related stuff first.
 	s.discmix.Close()
@@ -520,8 +569,9 @@ func (s *Ethereum) Stop() error {
 	return nil
 }
 
-// SyncMode retrieves the current sync mode, either explicitly set, or derived
-// from the chain status.
+// SyncMode retrieves the current sync mode, either explicitly set via the CLI or
+// implicitly "assigned".
+// SyncMode检索当前同步模式，可以通过CLI显式设置或隐式"分配"。
 func (s *Ethereum) SyncMode() ethconfig.SyncMode {
 	// If we're in snap sync mode, return that directly
 	if s.handler.snapSync.Load() {

@@ -21,15 +21,21 @@ import (
 )
 
 // NewTxsEvent is posted when a batch of transactions enter the transaction pool.
+// NewTxsEvent 在一批交易进入交易池时发布。
 type NewTxsEvent struct{ Txs []*types.Transaction }
 
 // RemovedLogsEvent is posted when a reorg happens
+// RemovedLogsEvent 在发生重组时发布。
 type RemovedLogsEvent struct{ Logs []*types.Log }
 
+// ChainEvent represents a chain event like a new header was added to the chain.
+// ChainEvent 表示链事件，如新的区块头被添加到链中。
 type ChainEvent struct {
 	Header *types.Header
 }
 
+// ChainHeadEvent is posted when a new head block is added to the canonical chain.
+// ChainHeadEvent 在新的头区块被添加到规范链时发布。
 type ChainHeadEvent struct {
 	Header *types.Header
 }

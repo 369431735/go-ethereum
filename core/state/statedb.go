@@ -15,6 +15,7 @@
 // along with the go-ethereum library. If not, see <http://www.gnu.org/licenses/>.
 
 // Package state provides a caching layer atop the Ethereum state trie.
+// 包state提供了以太坊状态树之上的缓存层。
 package state
 
 import (
@@ -76,18 +77,31 @@ func (m *mutation) isDelete() bool {
 // trie, storage tries) will no longer be functional. A new state instance
 // must be created with new root and updated database for accessing post-
 // commit states.
+// StateDB结构体在以太坊协议中用于存储默克尔树中的任何内容。
+// StateDB负责缓存和存储嵌套状态。它是检索以下内容的通用查询接口：
+//
+// * 合约
+// * 账户
+//
+// 一旦状态被提交，stateDB中缓存的树（包括账户树、存储树）
+// 将不再起作用。必须使用新的根和更新的数据库创建一个新的状态实例
+// 来访问提交后的状态。
+
 type StateDB struct {
-	db         Database
-	prefetcher *triePrefetcher
-	trie       Trie
-	reader     Reader
+	db         Database        // 底层数据库
+	prefetcher *triePrefetcher // 树预取器
+	trie       Trie            // 状态树
+	reader     Reader          // 状态读取器
 
 	// originalRoot is the pre-state root, before any changes were made.
 	// It will be updated when the Commit is called.
+	// originalRoot是预状态根，在进行任何更改之前。
+	// 它将在调用Commit时更新。
 	originalRoot common.Hash
 
 	// This map holds 'live' objects, which will get modified while
 	// processing a state transition.
+	// 此映射保存"活动"对象，这些对象将在处理状态转换时被修改。
 	stateObjects map[common.Address]*stateObject
 
 	// This map holds 'deleted' objects. An object with the same address
@@ -95,12 +109,18 @@ type StateDB struct {
 	// resurrection. The account value is tracked as the original value
 	// before the transition. This map is populated at the transaction
 	// boundaries.
+	// 此映射保存"已删除"的对象。由于账户复活，具有相同地址的对象
+	// 也可能出现在'stateObjects'映射中。账户值被跟踪为转换前的原始值。
+	// 此映射在交易边界处填充。
 	stateObjectsDestruct map[common.Address]*stateObject
 
 	// This map tracks the account mutations that occurred during the
 	// transition. Uncommitted mutations belonging to the same account
 	// can be merged into a single one which is equivalent from database's
 	// perspective. This map is populated at the transaction boundaries.
+	// 此映射跟踪转换期间发生的账户变更。属于同一账户的未提交变更
+	// 可以合并为一个，从数据库的角度来看是等效的。
+	// 此映射在交易边界处填充。
 	mutations map[common.Address]*mutation
 
 	// DB error.
@@ -110,35 +130,48 @@ type StateDB struct {
 	// returned by StateDB.Commit. Notably, this error is also shared
 	// by all cached state objects in case the database failure occurs
 	// when accessing state of accounts.
+	// 数据库错误。
+	// 状态对象被共识核心和VM使用，它们无法处理数据库级别的错误。
+	// 在数据库读取期间发生的任何错误都会在此处被记忆，并最终由
+	// StateDB.Commit返回。值得注意的是，如果在访问账户状态时
+	// 发生数据库故障，所有缓存的状态对象也会共享此错误。
 	dbErr error
 
 	// The refund counter, also used by state transitioning.
+	// 退款计数器，也由状态转换使用。
 	refund uint64
 
 	// The tx context and all occurred logs in the scope of transaction.
+	// 交易上下文以及交易范围内发生的所有日志。
 	thash   common.Hash
 	txIndex int
 	logs    map[common.Hash][]*types.Log
 	logSize uint
 
 	// Preimages occurred seen by VM in the scope of block.
+	// VM在区块范围内看到的原像。
 	preimages map[common.Hash][]byte
 
 	// Per-transaction access list
+	// 每个交易的访问列表
 	accessList   *accessList
 	accessEvents *AccessEvents
 
 	// Transient storage
+	// 临时存储
 	transientStorage transientStorage
 
 	// Journal of state modifications. This is the backbone of
 	// Snapshot and RevertToSnapshot.
+	// 状态修改的日志。这是Snapshot和RevertToSnapshot的骨干。
 	journal *journal
 
 	// State witness if cross validation is needed
+	// 如果需要交叉验证的状态见证
 	witness *stateless.Witness
 
 	// Measurements gathered during execution for debugging purposes
+	// 为调试目的而收集的执行期间的测量数据
 	AccountReads    time.Duration
 	AccountHashes   time.Duration
 	AccountUpdates  time.Duration
@@ -149,15 +182,16 @@ type StateDB struct {
 	SnapshotCommits time.Duration
 	TrieDBCommits   time.Duration
 
-	AccountLoaded  int          // Number of accounts retrieved from the database during the state transition
-	AccountUpdated int          // Number of accounts updated during the state transition
-	AccountDeleted int          // Number of accounts deleted during the state transition
-	StorageLoaded  int          // Number of storage slots retrieved from the database during the state transition
-	StorageUpdated atomic.Int64 // Number of storage slots updated during the state transition
-	StorageDeleted atomic.Int64 // Number of storage slots deleted during the state transition
+	AccountLoaded  int          // Number of accounts retrieved from the database during the state transition // 在状态转换期间从数据库检索的账户数量
+	AccountUpdated int          // Number of accounts updated during the state transition // 状态转换期间更新的账户数量
+	AccountDeleted int          // Number of accounts deleted during the state transition // 状态转换期间删除的账户数量
+	StorageLoaded  int          // Number of storage slots retrieved from the database during the state transition // 在状态转换期间从数据库检索的存储槽数量
+	StorageUpdated atomic.Int64 // Number of storage slots updated during the state transition // 状态转换期间更新的存储槽数量
+	StorageDeleted atomic.Int64 // Number of storage slots deleted during the state transition // 状态转换期间删除的存储槽数量
 }
 
 // New creates a new state from a given trie.
+// New从给定的树创建一个新的状态。
 func New(root common.Hash, db Database) (*StateDB, error) {
 	tr, err := db.OpenTrie(root)
 	if err != nil {
@@ -190,6 +224,9 @@ func New(root common.Hash, db Database) (*StateDB, error) {
 // StartPrefetcher initializes a new trie prefetcher to pull in nodes from the
 // state trie concurrently while the state is mutated so that when we reach the
 // commit phase, most of the needed data is already hot.
+// StartPrefetcher初始化一个新的树预取器，在状态变更的同时
+// 并发地从状态树中拉取节点，这样当我们到达提交阶段时，
+// 大部分需要的数据已经在热缓存中了。
 func (s *StateDB) StartPrefetcher(namespace string, witness *stateless.Witness) {
 	// Terminate any previously running prefetcher
 	s.StopPrefetcher()
@@ -214,6 +251,8 @@ func (s *StateDB) StartPrefetcher(namespace string, witness *stateless.Witness) 
 
 // StopPrefetcher terminates a running prefetcher and reports any leftover stats
 // from the gathered metrics.
+// StopPrefetcher终止正在运行的预取器，并报告从收集的指标中
+// 剩余的统计信息。
 func (s *StateDB) StopPrefetcher() {
 	if s.prefetcher != nil {
 		s.prefetcher.terminate(false)
@@ -264,6 +303,7 @@ func (s *StateDB) Logs() []*types.Log {
 }
 
 // AddPreimage records a SHA3 preimage seen by the VM.
+// AddPreimage记录VM看到的SHA3原像。
 func (s *StateDB) AddPreimage(hash common.Hash, preimage []byte) {
 	if _, ok := s.preimages[hash]; !ok {
 		s.preimages[hash] = slices.Clone(preimage)
@@ -276,6 +316,7 @@ func (s *StateDB) Preimages() map[common.Hash][]byte {
 }
 
 // AddRefund adds gas to the refund counter
+// AddRefund向退款计数器添加gas
 func (s *StateDB) AddRefund(gas uint64) {
 	s.journal.refundChange(s.refund)
 	s.refund += gas
@@ -283,6 +324,8 @@ func (s *StateDB) AddRefund(gas uint64) {
 
 // SubRefund removes gas from the refund counter.
 // This method will panic if the refund counter goes below zero
+// SubRefund从退款计数器中移除gas。
+// 如果退款计数器低于零，此方法将会panic
 func (s *StateDB) SubRefund(gas uint64) {
 	s.journal.refundChange(s.refund)
 	if gas > s.refund {
@@ -291,20 +334,25 @@ func (s *StateDB) SubRefund(gas uint64) {
 	s.refund -= gas
 }
 
-// Exist reports whether the given account address exists in the state.
-// Notably this also returns true for self-destructed accounts.
+// Exist reports whether the given account exists in state.
+// Notably this should also return true for self-destructed accounts.
+// Exist报告给定账户是否存在于状态中。
+// 值得注意的是，这对于自毁账户也应该返回true。
 func (s *StateDB) Exist(addr common.Address) bool {
 	return s.getStateObject(addr) != nil
 }
 
-// Empty returns whether the state object is either non-existent
-// or empty according to the EIP161 specification (balance = nonce = code = 0)
+// Empty returns whether the given account is empty. Empty
+// is defined according to EIP161 (balance = nonce = code = 0).
+// Empty返回给定账户是否为空。空
+// 根据EIP161定义（余额 = nonce = 代码 = 0）。
 func (s *StateDB) Empty(addr common.Address) bool {
 	so := s.getStateObject(addr)
 	return so == nil || so.empty()
 }
 
 // GetBalance retrieves the balance from the given address or 0 if object not found
+// GetBalance从给定地址检索余额，如果找不到对象则返回0
 func (s *StateDB) GetBalance(addr common.Address) *uint256.Int {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
@@ -314,6 +362,7 @@ func (s *StateDB) GetBalance(addr common.Address) *uint256.Int {
 }
 
 // GetNonce retrieves the nonce from the given address or 0 if object not found
+// GetNonce从给定地址检索nonce，如果找不到对象则返回0
 func (s *StateDB) GetNonce(addr common.Address) uint64 {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
@@ -334,10 +383,13 @@ func (s *StateDB) GetStorageRoot(addr common.Address) common.Hash {
 }
 
 // TxIndex returns the current transaction index set by SetTxContext.
+// TxIndex返回由Prepare设置的当前交易索引。
 func (s *StateDB) TxIndex() int {
 	return s.txIndex
 }
 
+// GetCode retrieves the contract code associated with the given address.
+// GetCode检索与给定地址关联的合约代码。
 func (s *StateDB) GetCode(addr common.Address) []byte {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
@@ -368,7 +420,8 @@ func (s *StateDB) GetCodeHash(addr common.Address) common.Hash {
 	return common.Hash{}
 }
 
-// GetState retrieves the value associated with the specific key.
+// GetState retrieves a value from the given account's storage trie.
+// GetState从给定账户的存储树中检索值。
 func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
@@ -379,6 +432,7 @@ func (s *StateDB) GetState(addr common.Address, hash common.Hash) common.Hash {
 
 // GetCommittedState retrieves the value associated with the specific key
 // without any mutations caused in the current execution.
+// GetCommittedState检索与特定键关联的值，不包括当前执行中造成的任何变更。
 func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) common.Hash {
 	stateObject := s.getStateObject(addr)
 	if stateObject != nil {
@@ -388,6 +442,7 @@ func (s *StateDB) GetCommittedState(addr common.Address, hash common.Hash) commo
 }
 
 // Database retrieves the low level database supporting the lower level trie ops.
+// Database检索支持底层树操作的低级数据库。
 func (s *StateDB) Database() Database {
 	return s.db
 }
@@ -404,7 +459,11 @@ func (s *StateDB) HasSelfDestructed(addr common.Address) bool {
  * SETTERS
  */
 
-// AddBalance adds amount to the account associated with addr.
+// AddBalance adds amount to the account associated with addr adding the
+// appropriate transfer metadata. It returns the previous account balance.
+// If the initial value is not yet in-memory, a read is performed.
+// AddBalance向与addr关联的账户添加金额，并添加适当的转账元数据。
+// 它返回之前的账户余额。如果初始值尚未在内存中，则执行读取操作。
 func (s *StateDB) AddBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject == nil {
@@ -413,7 +472,11 @@ func (s *StateDB) AddBalance(addr common.Address, amount *uint256.Int, reason tr
 	return stateObject.AddBalance(amount)
 }
 
-// SubBalance subtracts amount from the account associated with addr.
+// SubBalance removes amount from the account associated with addr adding the
+// appropriate transfer metadata. It returns the previous account balance.
+// If the initial value is not yet in-memory, a read is performed.
+// SubBalance从与addr关联的账户中移除金额，并添加适当的转账元数据。
+// 它返回之前的账户余额。如果初始值尚未在内存中，则执行读取操作。
 func (s *StateDB) SubBalance(addr common.Address, amount *uint256.Int, reason tracing.BalanceChangeReason) uint256.Int {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject == nil {
@@ -439,6 +502,10 @@ func (s *StateDB) SetNonce(addr common.Address, nonce uint64, reason tracing.Non
 	}
 }
 
+// SetCode updates the code associated with a given account. Another code with
+// the same size might be cached.
+// SetCode更新与给定账户关联的代码。相同大小的另一个代码可能会被缓存。
+// 它返回之前的代码。
 func (s *StateDB) SetCode(addr common.Address, code []byte) (prev []byte) {
 	stateObject := s.getOrNewStateObject(addr)
 	if stateObject != nil {
@@ -447,6 +514,7 @@ func (s *StateDB) SetCode(addr common.Address, code []byte) (prev []byte) {
 	return nil
 }
 
+// SetState updates a value in account storage.
 func (s *StateDB) SetState(addr common.Address, key, value common.Hash) common.Hash {
 	if stateObject := s.getOrNewStateObject(addr); stateObject != nil {
 		return stateObject.SetState(key, value)
@@ -484,10 +552,11 @@ func (s *StateDB) SetStorage(addr common.Address, storage map[common.Hash]common
 }
 
 // SelfDestruct marks the given account as selfdestructed.
-// This clears the account balance.
-//
-// The account's state object is still available until the state is committed,
-// getStateObject will return a non-nil account after SelfDestruct.
+// This clears the account balance and transfer the funds to beneficiary.
+// Remaining part is the same as AddSelfDestruct.
+// SelfDestruct将给定账户标记为自毁。
+// 这会清除账户余额并将资金转移给受益人。
+// 剩余部分与AddSelfDestruct相同。
 func (s *StateDB) SelfDestruct(addr common.Address) uint256.Int {
 	stateObject := s.getStateObject(addr)
 	var prevBalance uint256.Int
@@ -523,6 +592,9 @@ func (s *StateDB) SelfDestruct6780(addr common.Address) (uint256.Int, bool) {
 // SetTransientState sets transient storage for a given account. It
 // adds the change to the journal so that it can be rolled back
 // to its previous value if there is a revert.
+// SetTransientState为给定账户设置临时存储。它
+// 将更改添加到日志中，以便在发生还原时可以回滚到
+// 以前的值。
 func (s *StateDB) SetTransientState(addr common.Address, key, value common.Hash) {
 	prev := s.GetTransientState(addr, key)
 	if prev == value {
@@ -539,6 +611,7 @@ func (s *StateDB) setTransientState(addr common.Address, key, value common.Hash)
 }
 
 // GetTransientState gets transient storage for a given account.
+// GetTransientState获取给定账户的临时存储。
 func (s *StateDB) GetTransientState(addr common.Address, key common.Hash) common.Hash {
 	return s.transientStorage.Get(addr, key)
 }
@@ -617,28 +690,33 @@ func (s *StateDB) getOrNewStateObject(addr common.Address) *stateObject {
 	return obj
 }
 
-// createObject creates a new state object. The assumption is held there is no
-// existing account with the given address, otherwise it will be silently overwritten.
-func (s *StateDB) createObject(addr common.Address) *stateObject {
-	obj := newObject(s, addr, nil)
-	s.journal.createObject(addr)
-	s.setStateObject(obj)
-	return obj
-}
-
-// CreateAccount explicitly creates a new state object, assuming that the
-// account did not previously exist in the state. If the account already
-// exists, this function will silently overwrite it which might lead to a
-// consensus bug eventually.
+// CreateAccount explicitly creates a state object. If a state object with the address
+// already exists the balance is carried over to the new account.
+//
+// CreateAccount is called during the EVM CREATE operation. The situation might arise that
+// a contract does the following:
+//
+//  1. sends funds to sha(account ++ (nonce + 1))
+//  2. tx_create(sha(account ++ nonce)) (note that this gets the address of 1)
+//
+// Carrying over the balance ensures that Ether doesn't disappear.
+// CreateAccount显式创建一个状态对象。如果具有该地址的状态对象已经存在，
+// 余额将被转移到新账户。
+//
+// CreateAccount在EVM CREATE操作期间被调用。可能会出现以下情况：
+//
+//  1. 发送资金到sha(account ++ (nonce + 1))
+//  2. tx_create(sha(account ++ nonce))（注意，这将获取1的地址）
+//
+// 转移余额确保以太币不会消失。
 func (s *StateDB) CreateAccount(addr common.Address) {
 	s.createObject(addr)
 }
 
-// CreateContract is used whenever a contract is created. This may be preceded
-// by CreateAccount, but that is not required if it already existed in the
-// state due to funds sent beforehand.
-// This operation sets the 'newContract'-flag, which is required in order to
-// correctly handle EIP-6780 'delete-in-same-transaction' logic.
+// CreateContract creates a new contract with the given address. The returned
+// stateObject is a copy of the original one.
+// CreateContract使用给定地址创建一个新合约。返回的
+// stateObject是原始对象的副本。
 func (s *StateDB) CreateContract(addr common.Address) {
 	obj := s.getStateObject(addr)
 	if !obj.newContract {
@@ -648,7 +726,9 @@ func (s *StateDB) CreateContract(addr common.Address) {
 }
 
 // Copy creates a deep, independent copy of the state.
-// Snapshots of the copied state cannot be applied to the copy.
+// This function is expensive and should only be used before state transition.
+// Copy创建状态的深度、独立副本。
+// 此函数开销较大，应仅在状态转换之前使用。
 func (s *StateDB) Copy() *StateDB {
 	// Copy all the basic fields, initialize the memory ones
 	reader, _ := s.db.Reader(s.originalRoot) // impossible to fail
@@ -709,23 +789,37 @@ func (s *StateDB) Copy() *StateDB {
 }
 
 // Snapshot returns an identifier for the current revision of the state.
+// Snapshot返回状态当前修订版的标识符。
 func (s *StateDB) Snapshot() int {
 	return s.journal.snapshot()
 }
 
 // RevertToSnapshot reverts all state changes made since the given revision.
+// RevertToSnapshot撤销自给定修订版以来所做的所有状态更改。
 func (s *StateDB) RevertToSnapshot(revid int) {
 	s.journal.revertToSnapshot(revid, s)
 }
 
 // GetRefund returns the current value of the refund counter.
+// GetRefund返回退款计数器的当前值。
 func (s *StateDB) GetRefund() uint64 {
 	return s.refund
 }
 
-// Finalise finalises the state by removing the destructed objects and clears
-// the journal as well as the refunds. Finalise, however, will not push any updates
-// into the tries just yet. Only IntermediateRoot or Commit will do that.
+// Finalise finalises the state by removing the destructs, sharing
+// accounts if necessary, collecting ghost contaminants (EIP-6780)
+// collecting the dirty storage keys for the next commit,
+// setting clean account entries, and returning the mutation list.
+//
+// If deleteEmptyObjects is set, any account without the
+// flag stateObject.deleted which would have (nonce == code == balance == storage == 0) is
+// deleted. If not set, these objects are persisted.
+// Finalise通过移除销毁对象、必要时共享账户、收集幽灵污染物（EIP-6780）、
+// 收集下一次提交的脏存储键、设置干净的账户条目并返回变更列表来完成状态。
+//
+// 如果设置了deleteEmptyObjects，则会删除任何没有stateObject.deleted标志
+// 且（nonce == code == balance == storage == 0）的账户。
+// 如果未设置，这些对象将被保留。
 func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 	addressesToPrefetch := make([]common.Address, 0, len(s.journal.dirties))
 	for addr := range s.journal.dirties {
@@ -769,6 +863,8 @@ func (s *StateDB) Finalise(deleteEmptyObjects bool) {
 // IntermediateRoot computes the current root hash of the state trie.
 // It is called in between transactions to get the root hash that
 // goes into transaction receipts.
+// IntermediateRoot计算状态树的当前根哈希。
+// 它在交易之间被调用，以获取进入交易收据的根哈希。
 func (s *StateDB) IntermediateRoot(deleteEmptyObjects bool) common.Hash {
 	// Finalise all the dirty storage states and write them into the tries
 	s.Finalise(deleteEmptyObjects)
@@ -1305,20 +1401,8 @@ func (s *StateDB) commitAndFlush(block uint64, deleteEmptyObjects bool, noStorag
 	return ret, err
 }
 
-// Commit writes the state mutations into the configured data stores.
-//
-// Once the state is committed, tries cached in stateDB (including account
-// trie, storage tries) will no longer be functional. A new state instance
-// must be created with new root and updated database for accessing post-
-// commit states.
-//
-// The associated block number of the state transition is also provided
-// for more chain context.
-//
-// noStorageWiping is a flag indicating whether storage wiping is permitted.
-// Since self-destruction was deprecated with the Cancun fork and there are
-// no empty accounts left that could be deleted by EIP-158, storage wiping
-// should not occur.
+// Commit writes the state to the underlying in-memory trie database.
+// Commit将状态写入底层内存树数据库。
 func (s *StateDB) Commit(block uint64, deleteEmptyObjects bool, noStorageWiping bool) (common.Hash, error) {
 	ret, err := s.commitAndFlush(block, deleteEmptyObjects, noStorageWiping)
 	if err != nil {
@@ -1372,13 +1456,15 @@ func (s *StateDB) Prepare(rules params.Rules, sender, coinbase common.Address, d
 }
 
 // AddAddressToAccessList adds the given address to the access list
+// AddAddressToAccessList将给定地址添加到访问列表
 func (s *StateDB) AddAddressToAccessList(addr common.Address) {
 	if s.accessList.AddAddress(addr) {
 		s.journal.accessListAddAccount(addr)
 	}
 }
 
-// AddSlotToAccessList adds the given (address, slot)-tuple to the access list
+// AddSlotToAccessList adds the given (address, slot) to the access list
+// AddSlotToAccessList将给定的（地址，槽位）添加到访问列表
 func (s *StateDB) AddSlotToAccessList(addr common.Address, slot common.Hash) {
 	addrMod, slotMod := s.accessList.AddSlot(addr, slot)
 	if addrMod {
@@ -1393,12 +1479,14 @@ func (s *StateDB) AddSlotToAccessList(addr common.Address, slot common.Hash) {
 	}
 }
 
-// AddressInAccessList returns true if the given address is in the access list.
+// AddressInAccessList returns true if the given address is in the access list
+// AddressInAccessList如果给定地址在访问列表中则返回true
 func (s *StateDB) AddressInAccessList(addr common.Address) bool {
 	return s.accessList.ContainsAddress(addr)
 }
 
-// SlotInAccessList returns true if the given (address, slot)-tuple is in the access list.
+// SlotInAccessList returns true if the given (address, slot) is in the access list
+// SlotInAccessList如果给定的（地址，槽位）在访问列表中则返回true
 func (s *StateDB) SlotInAccessList(addr common.Address, slot common.Hash) (addressPresent bool, slotPresent bool) {
 	return s.accessList.Contains(addr, slot)
 }
@@ -1427,11 +1515,23 @@ func (s *StateDB) PointCache() *utils.PointCache {
 	return s.db.PointCache()
 }
 
-// Witness retrieves the current state witness being collected.
+// Witness returns the state witness object.
 func (s *StateDB) Witness() *stateless.Witness {
 	return s.witness
 }
 
+// AccessEvents returns the state access events.
 func (s *StateDB) AccessEvents() *AccessEvents {
 	return s.accessEvents
+}
+
+// createObject creates a new state object. The assumption is held there is no
+// existing account with the given address, otherwise it will be silently overwritten.
+// createObject创建一个新的状态对象。假设没有具有给定地址的
+// 现有账户，否则它将被静默覆盖。
+func (s *StateDB) createObject(addr common.Address) *stateObject {
+	obj := newObject(s, addr, nil)
+	s.journal.createObject(addr)
+	s.setStateObject(obj)
+	return obj
 }

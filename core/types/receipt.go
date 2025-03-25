@@ -42,15 +42,19 @@ var errShortTypedReceipt = errors.New("typed receipt too short")
 
 const (
 	// ReceiptStatusFailed is the status code of a transaction if execution failed.
+	// ReceiptStatusFailed是交易执行失败时的状态码。
 	ReceiptStatusFailed = uint64(0)
 
 	// ReceiptStatusSuccessful is the status code of a transaction if execution succeeded.
+	// ReceiptStatusSuccessful是交易执行成功时的状态码。
 	ReceiptStatusSuccessful = uint64(1)
 )
 
 // Receipt represents the results of a transaction.
+// Receipt表示交易的结果。
 type Receipt struct {
 	// Consensus fields: These fields are defined by the Yellow Paper
+	// 共识字段：这些字段由黄皮书定义
 	Type              uint8  `json:"type,omitempty"`
 	PostState         []byte `json:"root"`
 	Status            uint64 `json:"status"`
@@ -59,6 +63,7 @@ type Receipt struct {
 	Logs              []*Log `json:"logs"              gencodec:"required"`
 
 	// Implementation fields: These fields are added by geth when processing a transaction.
+	// 实现字段：这些字段是geth在处理交易时添加的。
 	TxHash            common.Hash    `json:"transactionHash" gencodec:"required"`
 	ContractAddress   common.Address `json:"contractAddress"`
 	GasUsed           uint64         `json:"gasUsed" gencodec:"required"`
@@ -68,6 +73,7 @@ type Receipt struct {
 
 	// Inclusion information: These fields provide information about the inclusion of the
 	// transaction corresponding to this receipt.
+	// 包含信息：这些字段提供关于与此收据对应的交易包含的信息。
 	BlockHash        common.Hash `json:"blockHash,omitempty"`
 	BlockNumber      *big.Int    `json:"blockNumber,omitempty"`
 	TransactionIndex uint        `json:"transactionIndex"`
@@ -87,6 +93,7 @@ type receiptMarshaling struct {
 }
 
 // receiptRLP is the consensus encoding of a receipt.
+// receiptRLP是收据的共识编码。
 type receiptRLP struct {
 	PostStateOrStatus []byte
 	CumulativeGasUsed uint64
@@ -95,6 +102,7 @@ type receiptRLP struct {
 }
 
 // storedReceiptRLP is the storage encoding of a receipt.
+// storedReceiptRLP是收据的存储编码。
 type storedReceiptRLP struct {
 	PostStateOrStatus []byte
 	CumulativeGasUsed uint64
@@ -103,6 +111,8 @@ type storedReceiptRLP struct {
 
 // NewReceipt creates a barebone transaction receipt, copying the init fields.
 // Deprecated: create receipts using a struct literal instead.
+// NewReceipt创建一个基本的交易收据，复制初始字段。
+// 已弃用：请使用结构体字面量创建收据。
 func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 	r := &Receipt{
 		Type:              LegacyTxType,
@@ -119,6 +129,8 @@ func NewReceipt(root []byte, failed bool, cumulativeGasUsed uint64) *Receipt {
 
 // EncodeRLP implements rlp.Encoder, and flattens the consensus fields of a receipt
 // into an RLP stream. If no post state is present, byzantium fork is assumed.
+// EncodeRLP实现rlp.Encoder接口，并将收据的共识字段扁平化为RLP流。
+// 如果没有后置状态，则假定为拜占庭分叉。
 func (r *Receipt) EncodeRLP(w io.Writer) error {
 	data := &receiptRLP{r.statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs}
 	if r.Type == LegacyTxType {
@@ -134,12 +146,14 @@ func (r *Receipt) EncodeRLP(w io.Writer) error {
 }
 
 // encodeTyped writes the canonical encoding of a typed receipt to w.
+// encodeTyped将类型化收据的规范编码写入w。
 func (r *Receipt) encodeTyped(data *receiptRLP, w *bytes.Buffer) error {
 	w.WriteByte(r.Type)
 	return rlp.Encode(w, data)
 }
 
 // MarshalBinary returns the consensus encoding of the receipt.
+// MarshalBinary返回收据的共识编码。
 func (r *Receipt) MarshalBinary() ([]byte, error) {
 	if r.Type == LegacyTxType {
 		return rlp.EncodeToBytes(r)
@@ -152,6 +166,7 @@ func (r *Receipt) MarshalBinary() ([]byte, error) {
 
 // DecodeRLP implements rlp.Decoder, and loads the consensus fields of a receipt
 // from an RLP stream.
+// DecodeRLP实现rlp.Decoder接口，并从RLP流中加载收据的共识字段。
 func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
 	kind, size, err := s.Kind()
 	switch {
@@ -183,6 +198,8 @@ func (r *Receipt) DecodeRLP(s *rlp.Stream) error {
 
 // UnmarshalBinary decodes the consensus encoding of receipts.
 // It supports legacy RLP receipts and EIP-2718 typed receipts.
+// UnmarshalBinary解码收据的共识编码。
+// 它支持传统的RLP收据和EIP-2718类型化收据。
 func (r *Receipt) UnmarshalBinary(b []byte) error {
 	if len(b) > 0 && b[0] > 0x7f {
 		// It's a legacy receipt decode the RLP
@@ -198,7 +215,8 @@ func (r *Receipt) UnmarshalBinary(b []byte) error {
 	return r.decodeTyped(b)
 }
 
-// decodeTyped decodes a typed receipt from the canonical format.
+// decodeTyped decodes a typed receipt from its canonical encoding.
+// decodeTyped从其规范编码中解码类型化收据。
 func (r *Receipt) decodeTyped(b []byte) error {
 	if len(b) <= 1 {
 		return errShortTypedReceipt
@@ -217,11 +235,15 @@ func (r *Receipt) decodeTyped(b []byte) error {
 	}
 }
 
+// setFromRLP sets the receipt from the given receiptRLP.
+// setFromRLP从给定的receiptRLP设置收据。
 func (r *Receipt) setFromRLP(data receiptRLP) error {
 	r.CumulativeGasUsed, r.Bloom, r.Logs = data.CumulativeGasUsed, data.Bloom, data.Logs
 	return r.setStatus(data.PostStateOrStatus)
 }
 
+// setStatus sets the status of the receipt from the given post state or status.
+// setStatus从给定的后置状态或状态设置收据的状态。
 func (r *Receipt) setStatus(postStateOrStatus []byte) error {
 	switch {
 	case bytes.Equal(postStateOrStatus, receiptStatusSuccessfulRLP):
@@ -236,6 +258,8 @@ func (r *Receipt) setStatus(postStateOrStatus []byte) error {
 	return nil
 }
 
+// statusEncoding returns the status encoding of the receipt.
+// statusEncoding返回收据的状态编码。
 func (r *Receipt) statusEncoding() []byte {
 	if len(r.PostState) == 0 {
 		if r.Status == ReceiptStatusFailed {
@@ -248,6 +272,8 @@ func (r *Receipt) statusEncoding() []byte {
 
 // Size returns the approximate memory used by all internal contents. It is used
 // to approximate and limit the memory consumption of various caches.
+// Size返回所有内部内容使用的近似内存。它用于
+// 近似和限制各种缓存的内存消耗。
 func (r *Receipt) Size() common.StorageSize {
 	size := common.StorageSize(unsafe.Sizeof(*r)) + common.StorageSize(len(r.PostState))
 	size += common.StorageSize(len(r.Logs)) * common.StorageSize(unsafe.Sizeof(Log{}))
@@ -259,10 +285,13 @@ func (r *Receipt) Size() common.StorageSize {
 
 // ReceiptForStorage is a wrapper around a Receipt with RLP serialization
 // that omits the Bloom field and deserialization that re-computes it.
+// ReceiptForStorage是Receipt的包装器，具有RLP序列化
+// 它省略了Bloom字段，并在反序列化时重新计算它。
 type ReceiptForStorage Receipt
 
 // EncodeRLP implements rlp.Encoder, and flattens all content fields of a receipt
 // into an RLP stream.
+// EncodeRLP实现rlp.Encoder接口，并将收据的所有内容字段扁平化为RLP流。
 func (r *ReceiptForStorage) EncodeRLP(_w io.Writer) error {
 	w := rlp.NewEncoderBuffer(_w)
 	outerList := w.List()
@@ -281,6 +310,7 @@ func (r *ReceiptForStorage) EncodeRLP(_w io.Writer) error {
 
 // DecodeRLP implements rlp.Decoder, and loads both consensus and implementation
 // fields of a receipt from an RLP stream.
+// DecodeRLP实现rlp.Decoder接口，并从RLP流中加载收据的共识和实现字段。
 func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
 	var stored storedReceiptRLP
 	if err := s.Decode(&stored); err != nil {
@@ -297,12 +327,15 @@ func (r *ReceiptForStorage) DecodeRLP(s *rlp.Stream) error {
 }
 
 // Receipts implements DerivableList for receipts.
+// Receipts为收据实现DerivableList接口。
 type Receipts []*Receipt
 
 // Len returns the number of receipts in this list.
+// Len返回此列表中收据的数量。
 func (rs Receipts) Len() int { return len(rs) }
 
 // EncodeIndex encodes the i'th receipt to w.
+// EncodeIndex将第i个收据编码到w。
 func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
 	r := rs[i]
 	data := &receiptRLP{r.statusEncoding(), r.CumulativeGasUsed, r.Bloom, r.Logs}
@@ -323,6 +356,8 @@ func (rs Receipts) EncodeIndex(i int, w *bytes.Buffer) {
 
 // DeriveFields fills the receipts with their computed fields based on consensus
 // data and contextual infos like containing block and transactions.
+// DeriveFields根据共识数据和上下文信息（如包含区块和交易）
+// 填充收据的计算字段。
 func (rs Receipts) DeriveFields(config *params.ChainConfig, hash common.Hash, number uint64, time uint64, baseFee *big.Int, blobGasPrice *big.Int, txs []*Transaction) error {
 	signer := MakeSigner(config, new(big.Int).SetUint64(number), time)
 

@@ -34,10 +34,13 @@ import (
 )
 
 // Lengths of hashes and addresses in bytes.
+// 哈希和地址的长度（字节）。
 const (
 	// HashLength is the expected length of the hash
+	// HashLength 是哈希的预期长度
 	HashLength = 32
 	// AddressLength is the expected length of the address
+	// AddressLength 是地址的预期长度
 	AddressLength = 20
 )
 
@@ -46,17 +49,22 @@ var (
 	addressT = reflect.TypeOf(Address{})
 
 	// MaxAddress represents the maximum possible address value.
+	// MaxAddress 表示最大可能的地址值。
 	MaxAddress = HexToAddress("0xffffffffffffffffffffffffffffffffffffffff")
 
 	// MaxHash represents the maximum possible hash value.
+	// MaxHash 表示最大可能的哈希值。
 	MaxHash = HexToHash("0xffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffffff")
 )
 
 // Hash represents the 32 byte Keccak256 hash of arbitrary data.
+// Hash 表示任意数据的32字节Keccak256哈希。
 type Hash [HashLength]byte
 
 // BytesToHash sets b to hash.
 // If b is larger than len(h), b will be cropped from the left.
+// BytesToHash 将字节数组b转换为哈希。
+// 如果b大于h的长度，则会从左侧裁剪b。
 func BytesToHash(b []byte) Hash {
 	var h Hash
 	h.SetBytes(b)
@@ -65,40 +73,52 @@ func BytesToHash(b []byte) Hash {
 
 // BigToHash sets byte representation of b to hash.
 // If b is larger than len(h), b will be cropped from the left.
+// BigToHash 将大整数b的字节表示形式转换为哈希。
+// 如果b大于h的长度，则会从左侧裁剪b。
 func BigToHash(b *big.Int) Hash { return BytesToHash(b.Bytes()) }
 
 // HexToHash sets byte representation of s to hash.
 // If b is larger than len(h), b will be cropped from the left.
+// HexToHash 将十六进制字符串s的字节表示形式转换为哈希。
+// 如果b大于h的长度，则会从左侧裁剪b。
 func HexToHash(s string) Hash { return BytesToHash(FromHex(s)) }
 
 // Cmp compares two hashes.
+// Cmp 比较两个哈希。
 func (h Hash) Cmp(other Hash) int {
 	return bytes.Compare(h[:], other[:])
 }
 
 // Bytes gets the byte representation of the underlying hash.
+// Bytes 获取底层哈希的字节表示形式。
 func (h Hash) Bytes() []byte { return h[:] }
 
 // Big converts a hash to a big integer.
+// Big 将哈希转换为大整数。
 func (h Hash) Big() *big.Int { return new(big.Int).SetBytes(h[:]) }
 
 // Hex converts a hash to a hex string.
+// Hex 将哈希转换为十六进制字符串。
 func (h Hash) Hex() string { return hexutil.Encode(h[:]) }
 
 // TerminalString implements log.TerminalStringer, formatting a string for console
 // output during logging.
+// TerminalString 实现log.TerminalStringer，格式化字符串以便在日志记录期间进行控制台输出。
 func (h Hash) TerminalString() string {
 	return fmt.Sprintf("%x..%x", h[:3], h[29:])
 }
 
 // String implements the stringer interface and is used also by the logger when
 // doing full logging into a file.
+// String 实现stringer接口，在将完整日志记录到文件时也被日志记录器使用。
 func (h Hash) String() string {
 	return h.Hex()
 }
 
 // Format implements fmt.Formatter.
 // Hash supports the %v, %s, %q, %x, %X and %d format verbs.
+// Format 实现fmt.Formatter。
+// Hash支持%v、%s、%q、%x、%X和%d格式动词。
 func (h Hash) Format(s fmt.State, c rune) {
 	hexb := make([]byte, 2+len(h)*2)
 	copy(hexb, "0x")
@@ -128,22 +148,27 @@ func (h Hash) Format(s fmt.State, c rune) {
 }
 
 // UnmarshalText parses a hash in hex syntax.
+// UnmarshalText 解析十六进制语法中的哈希。
 func (h *Hash) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedText("Hash", input, h[:])
 }
 
 // UnmarshalJSON parses a hash in hex syntax.
+// UnmarshalJSON 解析十六进制语法中的哈希。
 func (h *Hash) UnmarshalJSON(input []byte) error {
 	return hexutil.UnmarshalFixedJSON(hashT, input, h[:])
 }
 
 // MarshalText returns the hex representation of h.
+// MarshalText 返回h的十六进制表示形式。
 func (h Hash) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(h[:]).MarshalText()
 }
 
 // SetBytes sets the hash to the value of b.
 // If b is larger than len(h), b will be cropped from the left.
+// SetBytes 将哈希设置为b的值。
+// 如果b大于h的长度，则会从左侧裁剪b。
 func (h *Hash) SetBytes(b []byte) {
 	if len(b) > len(h) {
 		b = b[len(b)-HashLength:]
@@ -153,6 +178,7 @@ func (h *Hash) SetBytes(b []byte) {
 }
 
 // Generate implements testing/quick.Generator.
+// Generate 实现testing/quick.Generator。
 func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
 	m := rand.Intn(len(h))
 	for i := len(h) - 1; i > m; i-- {
@@ -162,6 +188,7 @@ func (h Hash) Generate(rand *rand.Rand, size int) reflect.Value {
 }
 
 // Scan implements Scanner for database/sql.
+// Scan 实现database/sql的Scanner接口。
 func (h *Hash) Scan(src interface{}) error {
 	srcB, ok := src.([]byte)
 	if !ok {
@@ -175,14 +202,17 @@ func (h *Hash) Scan(src interface{}) error {
 }
 
 // Value implements valuer for database/sql.
+// Value 实现database/sql的valuer接口。
 func (h Hash) Value() (driver.Value, error) {
 	return h[:], nil
 }
 
 // ImplementsGraphQLType returns true if Hash implements the specified GraphQL type.
+// ImplementsGraphQLType 如果Hash实现指定的GraphQL类型，则返回true。
 func (Hash) ImplementsGraphQLType(name string) bool { return name == "Bytes32" }
 
 // UnmarshalGraphQL unmarshals the provided GraphQL query data.
+// UnmarshalGraphQL 解组提供的GraphQL查询数据。
 func (h *Hash) UnmarshalGraphQL(input interface{}) error {
 	var err error
 	switch input := input.(type) {
@@ -195,14 +225,17 @@ func (h *Hash) UnmarshalGraphQL(input interface{}) error {
 }
 
 // UnprefixedHash allows marshaling a Hash without 0x prefix.
+// UnprefixedHash 允许在没有0x前缀的情况下序列化Hash。
 type UnprefixedHash Hash
 
 // UnmarshalText decodes the hash from hex. The 0x prefix is optional.
+// UnmarshalText 从十六进制解码哈希。0x前缀是可选的。
 func (h *UnprefixedHash) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedUnprefixedText("UnprefixedHash", input, h[:])
 }
 
 // MarshalText encodes the hash as hex.
+// MarshalText 将哈希编码为十六进制。
 func (h UnprefixedHash) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(h[:])), nil
 }
@@ -210,10 +243,13 @@ func (h UnprefixedHash) MarshalText() ([]byte, error) {
 /////////// Address
 
 // Address represents the 20 byte address of an Ethereum account.
+// Address 表示以太坊账户的20字节地址。
 type Address [AddressLength]byte
 
 // BytesToAddress returns Address with value b.
 // If b is larger than len(h), b will be cropped from the left.
+// BytesToAddress 返回值为b的地址。
+// 如果b大于h的长度，则会从左侧裁剪b。
 func BytesToAddress(b []byte) Address {
 	var a Address
 	a.SetBytes(b)
@@ -222,14 +258,19 @@ func BytesToAddress(b []byte) Address {
 
 // BigToAddress returns Address with byte values of b.
 // If b is larger than len(h), b will be cropped from the left.
+// BigToAddress 返回具有b的字节值的地址。
+// 如果b大于h的长度，则会从左侧裁剪b。
 func BigToAddress(b *big.Int) Address { return BytesToAddress(b.Bytes()) }
 
 // HexToAddress returns Address with byte values of s.
 // If s is larger than len(h), s will be cropped from the left.
+// HexToAddress 返回具有s的字节值的地址。
+// 如果s大于h的长度，则会从左侧裁剪s。
 func HexToAddress(s string) Address { return BytesToAddress(FromHex(s)) }
 
 // IsHexAddress verifies whether a string can represent a valid hex-encoded
 // Ethereum address or not.
+// IsHexAddress 验证字符串是否可以表示有效的十六进制编码的以太坊地址。
 func IsHexAddress(s string) bool {
 	if has0xPrefix(s) {
 		s = s[2:]
@@ -238,22 +279,27 @@ func IsHexAddress(s string) bool {
 }
 
 // Cmp compares two addresses.
+// Cmp 比较两个地址。
 func (a Address) Cmp(other Address) int {
 	return bytes.Compare(a[:], other[:])
 }
 
 // Bytes gets the string representation of the underlying address.
+// Bytes 获取底层地址的字符串表示形式。
 func (a Address) Bytes() []byte { return a[:] }
 
 // Big converts an address to a big integer.
+// Big 将地址转换为大整数。
 func (a Address) Big() *big.Int { return new(big.Int).SetBytes(a[:]) }
 
 // Hex returns an EIP55-compliant hex string representation of the address.
+// Hex 返回地址的符合EIP55的十六进制字符串表示形式。
 func (a Address) Hex() string {
 	return string(a.checksumHex())
 }
 
 // String implements fmt.Stringer.
+// String 实现fmt.Stringer。
 func (a Address) String() string {
 	return a.Hex()
 }
@@ -288,6 +334,8 @@ func (a Address) hex() []byte {
 
 // Format implements fmt.Formatter.
 // Address supports the %v, %s, %q, %x, %X and %d format verbs.
+// Format 实现fmt.Formatter。
+// Address支持%v、%s、%q、%x、%X和%d格式动词。
 func (a Address) Format(s fmt.State, c rune) {
 	switch c {
 	case 'v', 's':
@@ -316,6 +364,8 @@ func (a Address) Format(s fmt.State, c rune) {
 
 // SetBytes sets the address to the value of b.
 // If b is larger than len(a), b will be cropped from the left.
+// SetBytes 将地址设置为b的值。
+// 如果b大于a的长度，则会从左侧裁剪b。
 func (a *Address) SetBytes(b []byte) {
 	if len(b) > len(a) {
 		b = b[len(b)-AddressLength:]
@@ -324,21 +374,25 @@ func (a *Address) SetBytes(b []byte) {
 }
 
 // MarshalText returns the hex representation of a.
+// MarshalText 返回a的十六进制表示形式。
 func (a Address) MarshalText() ([]byte, error) {
 	return hexutil.Bytes(a[:]).MarshalText()
 }
 
 // UnmarshalText parses a hash in hex syntax.
+// UnmarshalText 解析十六进制语法中的哈希。
 func (a *Address) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedText("Address", input, a[:])
 }
 
 // UnmarshalJSON parses a hash in hex syntax.
+// UnmarshalJSON 解析十六进制语法中的哈希。
 func (a *Address) UnmarshalJSON(input []byte) error {
 	return hexutil.UnmarshalFixedJSON(addressT, input, a[:])
 }
 
 // Scan implements Scanner for database/sql.
+// Scan 实现database/sql的Scanner接口。
 func (a *Address) Scan(src interface{}) error {
 	srcB, ok := src.([]byte)
 	if !ok {
@@ -352,14 +406,17 @@ func (a *Address) Scan(src interface{}) error {
 }
 
 // Value implements valuer for database/sql.
+// Value 实现database/sql的valuer接口。
 func (a Address) Value() (driver.Value, error) {
 	return a[:], nil
 }
 
 // ImplementsGraphQLType returns true if Hash implements the specified GraphQL type.
+// ImplementsGraphQLType 如果地址实现指定的GraphQL类型，则返回true。
 func (a Address) ImplementsGraphQLType(name string) bool { return name == "Address" }
 
 // UnmarshalGraphQL unmarshals the provided GraphQL query data.
+// UnmarshalGraphQL 解组提供的GraphQL查询数据。
 func (a *Address) UnmarshalGraphQL(input interface{}) error {
 	var err error
 	switch input := input.(type) {
@@ -372,31 +429,37 @@ func (a *Address) UnmarshalGraphQL(input interface{}) error {
 }
 
 // UnprefixedAddress allows marshaling an Address without 0x prefix.
+// UnprefixedAddress 允许在没有0x前缀的情况下序列化地址。
 type UnprefixedAddress Address
 
 // UnmarshalText decodes the address from hex. The 0x prefix is optional.
+// UnmarshalText 从十六进制解码地址。0x前缀是可选的。
 func (a *UnprefixedAddress) UnmarshalText(input []byte) error {
 	return hexutil.UnmarshalFixedUnprefixedText("UnprefixedAddress", input, a[:])
 }
 
 // MarshalText encodes the address as hex.
+// MarshalText 将地址编码为十六进制。
 func (a UnprefixedAddress) MarshalText() ([]byte, error) {
 	return []byte(hex.EncodeToString(a[:])), nil
 }
 
 // MixedcaseAddress retains the original string, which may or may not be
 // correctly checksummed
+// MixedcaseAddress 保留原始字符串，该字符串可能正确校验和，也可能不正确校验和
 type MixedcaseAddress struct {
 	addr     Address
 	original string
 }
 
 // NewMixedcaseAddress constructor (mainly for testing)
+// NewMixedcaseAddress 构造函数（主要用于测试）
 func NewMixedcaseAddress(addr Address) MixedcaseAddress {
 	return MixedcaseAddress{addr: addr, original: addr.Hex()}
 }
 
 // NewMixedcaseAddressFromString is mainly meant for unit-testing
+// NewMixedcaseAddressFromString 主要用于单元测试
 func NewMixedcaseAddressFromString(hexaddr string) (*MixedcaseAddress, error) {
 	if !IsHexAddress(hexaddr) {
 		return nil, errors.New("invalid address")
@@ -406,6 +469,7 @@ func NewMixedcaseAddressFromString(hexaddr string) (*MixedcaseAddress, error) {
 }
 
 // UnmarshalJSON parses MixedcaseAddress
+// UnmarshalJSON 解析MixedcaseAddress
 func (ma *MixedcaseAddress) UnmarshalJSON(input []byte) error {
 	if err := hexutil.UnmarshalFixedJSON(addressT, input, ma.addr[:]); err != nil {
 		return err
@@ -414,75 +478,107 @@ func (ma *MixedcaseAddress) UnmarshalJSON(input []byte) error {
 }
 
 // MarshalJSON marshals the original value
+// MarshalJSON 序列化原始值
 func (ma MixedcaseAddress) MarshalJSON() ([]byte, error) {
 	if strings.HasPrefix(ma.original, "0x") || strings.HasPrefix(ma.original, "0X") {
-		return json.Marshal(fmt.Sprintf("0x%s", ma.original[2:]))
+		return json.Marshal(ma.original)
 	}
-	return json.Marshal(fmt.Sprintf("0x%s", ma.original))
+	return json.Marshal("0x" + ma.original)
 }
 
 // Address returns the address
+// Address 返回地址
 func (ma *MixedcaseAddress) Address() Address {
 	return ma.addr
 }
 
 // String implements fmt.Stringer
+// String 实现fmt.Stringer
 func (ma *MixedcaseAddress) String() string {
 	if ma.ValidChecksum() {
-		return fmt.Sprintf("%s [chksum ok]", ma.original)
+		return ma.original
 	}
-	return fmt.Sprintf("%s [chksum INVALID]", ma.original)
+	return ma.addr.Hex()
 }
 
 // ValidChecksum returns true if the address has valid checksum
+// ValidChecksum 如果地址具有有效的校验和，则返回true
 func (ma *MixedcaseAddress) ValidChecksum() bool {
-	return ma.original == ma.addr.Hex()
+	return ma.original == string(ma.addr.checksumHex())
 }
 
 // Original returns the mixed-case input string
+// Original 返回混合大小写的输入字符串
 func (ma *MixedcaseAddress) Original() string {
 	return ma.original
 }
 
-// AddressEIP55 is an alias of Address with a customized json marshaller
+// AddressEIP55 is an alias to common.Address but it will display correctly EIP55 checksummed addresses
+// AddressEIP55 是common.Address的别名，但它将正确显示EIP55校验和地址
 type AddressEIP55 Address
 
-// String returns the hex representation of the address in the manner of EIP55.
+// String returns an EIP55 compliant hex string representation of the address.
+// String 返回符合EIP55的地址的十六进制字符串表示形式。
 func (addr AddressEIP55) String() string {
 	return Address(addr).Hex()
 }
 
-// MarshalJSON marshals the address in the manner of EIP55.
+// MarshalJSON returns the hex representation of a.
+// MarshalJSON 返回a的十六进制表示形式。
 func (addr AddressEIP55) MarshalJSON() ([]byte, error) {
-	return json.Marshal(addr.String())
+	return []byte(fmt.Sprintf("%q", addr.String())), nil
 }
 
+// Decimal represents is a wrapper for unsigned integers, which support
+// parsing from 0x/0X prefixed or non-prefixed decimal/hex strings.
+// Decimal 是无符号整数的包装器，支持从带有0x/0X前缀或不带前缀的十进制/十六进制字符串解析。
 type Decimal uint64
 
 func isString(input []byte) bool {
 	return len(input) >= 2 && input[0] == '"' && input[len(input)-1] == '"'
 }
 
-// UnmarshalJSON parses a hash in hex syntax.
+// UnmarshalJSON implements the json.Unmarshaler interface.
+// UnmarshalJSON 实现json.Unmarshaler接口。
 func (d *Decimal) UnmarshalJSON(input []byte) error {
 	if !isString(input) {
-		return &json.UnmarshalTypeError{Value: "non-string", Type: reflect.TypeOf(uint64(0))}
+		return errors.New("expected string value")
 	}
-	if i, err := strconv.ParseUint(string(input[1:len(input)-1]), 10, 64); err == nil {
-		*d = Decimal(i)
+	input = input[1 : len(input)-1]
+	if len(input) == 0 {
 		return nil
-	} else {
-		return err
 	}
+	var value uint64
+	if has0xPrefix(string(input)) {
+		var err error
+		value, err = strconv.ParseUint(string(input[2:]), 16, 64)
+		if err != nil {
+			return err
+		}
+	} else {
+		var err error
+		value, err = strconv.ParseUint(string(input), 10, 64)
+		if err != nil {
+			return err
+		}
+	}
+	*d = Decimal(value)
+	return nil
 }
 
+// PrettyBytes represents pretty-printed bytes.
+// PrettyBytes 表示美观打印的字节。
 type PrettyBytes []byte
 
 // TerminalString implements log.TerminalStringer, formatting a string for console
 // output during logging.
+// TerminalString 实现log.TerminalStringer，格式化字符串以便在日志记录期间进行控制台输出。
 func (b PrettyBytes) TerminalString() string {
-	if len(b) < 7 {
-		return fmt.Sprintf("%x", b)
+	if len(b) == 0 {
+		return "[]"
 	}
-	return fmt.Sprintf("%#x...%x (%dB)", b[:3], b[len(b)-3:], len(b))
+	if len(b) == 1 {
+		return fmt.Sprintf("[%x]", b[0])
+	}
+	return fmt.Sprintf("[%x..%x]", b[0], b[len(b)-1])
 }

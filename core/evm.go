@@ -31,18 +31,24 @@ import (
 
 // ChainContext supports retrieving headers and consensus parameters from the
 // current blockchain to be used during transaction processing.
+// ChainContext 支持从当前区块链中检索头部和共识参数，
+// 用于交易处理过程中。
 type ChainContext interface {
 	// Engine retrieves the chain's consensus engine.
+	// Engine 检索链的共识引擎。
 	Engine() consensus.Engine
 
 	// GetHeader returns the header corresponding to the hash/number argument pair.
+	// GetHeader 返回与哈希/编号参数对应的区块头。
 	GetHeader(common.Hash, uint64) *types.Header
 
 	// Config returns the chain's configuration.
+	// Config 返回链的配置。
 	Config() *params.ChainConfig
 }
 
 // NewEVMBlockContext creates a new context for use in the EVM.
+// NewEVMBlockContext 创建一个新的上下文，用于EVM中。
 func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common.Address) vm.BlockContext {
 	var (
 		beneficiary common.Address
@@ -52,8 +58,9 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 	)
 
 	// If we don't have an explicit author (i.e. not mining), extract from the header
+	// 如果我们没有一个明确的作者（即不是挖矿），从头部提取
 	if author == nil {
-		beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation
+		beneficiary, _ = chain.Engine().Author(header) // Ignore error, we're past header validation // 忽略错误，我们已经通过了头部验证
 	} else {
 		beneficiary = *author
 	}
@@ -82,6 +89,7 @@ func NewEVMBlockContext(header *types.Header, chain ChainContext, author *common
 }
 
 // NewEVMTxContext creates a new transaction context for a single transaction.
+// NewEVMTxContext 为单个交易创建一个新的交易上下文。
 func NewEVMTxContext(msg *Message) vm.TxContext {
 	ctx := vm.TxContext{
 		Origin:     msg.From,
@@ -95,18 +103,23 @@ func NewEVMTxContext(msg *Message) vm.TxContext {
 }
 
 // GetHashFn returns a GetHashFunc which retrieves header hashes by number
+// GetHashFn 返回一个GetHashFunc，通过编号检索区块头哈希
 func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash {
 	// Cache will initially contain [refHash.parent],
 	// Then fill up with [refHash.p, refHash.pp, refHash.ppp, ...]
+	// 缓存最初将包含[refHash.parent]，
+	// 然后填充[refHash.p, refHash.pp, refHash.ppp, ...]
 	var cache []common.Hash
 
 	return func(n uint64) common.Hash {
 		if ref.Number.Uint64() <= n {
 			// This situation can happen if we're doing tracing and using
 			// block overrides.
+			// 如果我们正在进行追踪并使用区块覆盖，这种情况可能会发生。
 			return common.Hash{}
 		}
 		// If there's no hash cache yet, make one
+		// 如果还没有哈希缓存，创建一个
 		if len(cache) == 0 {
 			cache = append(cache, ref.ParentHash)
 		}
@@ -114,6 +127,7 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 			return cache[idx]
 		}
 		// No luck in the cache, but we can start iterating from the last element we already know
+		// 缓存中没有找到，但我们可以从已知的最后一个元素开始迭代
 		lastKnownHash := cache[len(cache)-1]
 		lastKnownNumber := ref.Number.Uint64() - uint64(len(cache))
 
@@ -135,11 +149,14 @@ func GetHashFn(ref *types.Header, chain ChainContext) func(n uint64) common.Hash
 
 // CanTransfer checks whether there are enough funds in the address' account to make a transfer.
 // This does not take the necessary gas in to account to make the transfer valid.
+// CanTransfer 检查地址账户中是否有足够的资金进行转账。
+// 这并不考虑使转账有效所需的必要gas。
 func CanTransfer(db vm.StateDB, addr common.Address, amount *uint256.Int) bool {
 	return db.GetBalance(addr).Cmp(amount) >= 0
 }
 
 // Transfer subtracts amount from sender and adds amount to recipient using the given Db
+// Transfer 使用给定的DB从发送者中减去金额并将金额添加到接收者
 func Transfer(db vm.StateDB, sender, recipient common.Address, amount *uint256.Int) {
 	db.SubBalance(sender, amount, tracing.BalanceChangeTransfer)
 	db.AddBalance(recipient, amount, tracing.BalanceChangeTransfer)
